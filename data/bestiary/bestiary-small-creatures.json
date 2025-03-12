@@ -1,0 +1,230 @@
+{
+  "monster": [
+    {
+      "name": "Spider",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0,
+      "hp": { "average": 1, "formula": "1d4-1" },
+      "ac": 12,
+      "speed": { "walk": 20, "climb": 20 },
+      "str": 2,
+      "dex": 14,
+      "con": 8,
+      "int": 1,
+      "wis": 10,
+      "cha": 2,
+      "passive": 10,
+      "skill": {
+        "stealth": "+4"
+      },
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@damage 1} piercing damage, and the target must succeed on a DC 9 Constitution saving throw or take {@damage 1d4} poison damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Spider Climb",
+          "entries": ["The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."]
+        },
+        {
+          "name": "Web Sense",
+          "entries": ["While in contact with a web, the spider knows the exact location of any other creature in contact with the same web."]
+        },
+        {
+          "name": "Web Walker",
+          "entries": ["The spider ignores movement restrictions caused by webbing."]
+        }
+      ]
+    },
+    {
+      "name": "Giant Spider",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 1,
+      "hp": { "average": 26, "formula": "4d10+4" },
+      "ac": 14,
+      "speed": { "walk": 30, "climb": 30 },
+      "str": 14,
+      "dex": 16,
+      "con": 12,
+      "int": 2,
+      "wis": 11,
+      "cha": 4,
+      "passive": 10,
+      "skill": {
+        "stealth": "+7"
+      },
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@damage 1d8+3} piercing damage, and the target must make a DC 11 Constitution saving throw, taking {@damage 2d8} poison damage on a failed save, or half as much damage on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but {@condition poisoned} for 1 hour, even after regaining hit points, and is {@condition paralyzed} while {@condition poisoned} in this way."]
+        },
+        {
+          "name": "Web {@recharge 5}",
+          "entries": ["{@atk rw} {@hit 5} to hit, range 30/60 ft., one creature. {@damage 0} The target is {@condition restrained} by webbing. As an action, the {@condition restrained} target can make a DC 12 Strength check, bursting the webbing on a success. The webbing can also be attacked and destroyed (AC 10; hp 5; vulnerability to fire damage; immunity to bludgeoning, poison, and psychic damage)."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Spider Climb",
+          "entries": ["The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."]
+        },
+        {
+          "name": "Web Sense",
+          "entries": ["While in contact with a web, the spider knows the exact location of any other creature in contact with the same web."]
+        },
+        {
+          "name": "Web Walker",
+          "entries": ["The spider ignores movement restrictions caused by webbing."]
+        }
+      ]
+    },
+    {
+      "name": "Bat",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0,
+      "hp": { "average": 1, "formula": "1d4-1" },
+      "ac": 12,
+      "speed": { "walk": 5, "fly": 30 },
+      "str": 2,
+      "dex": 15,
+      "con": 8,
+      "int": 2,
+      "wis": 12,
+      "cha": 4,
+      "passive": 11,
+      "trait": [
+        {
+          "name": "Echolocation",
+          "entries": ["The bat can't use its blindsight while deafened."]
+        },
+        {
+          "name": "Keen Hearing",
+          "entries": ["The bat has advantage on Wisdom (Perception) checks that rely on hearing."]
+        }
+      ],
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 0} to hit, reach 5 ft., one creature. {@damage 1} piercing damage."]
+        }
+      ],
+      "senseTags": ["B"],
+      "senses": [
+        {
+          "type": "blindsight",
+          "range": "60 ft."
+        }
+      ]
+    },
+    {
+      "name": "Giant Bat",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 0.25,
+      "hp": { "average": 22, "formula": "4d10" },
+      "ac": 13,
+      "speed": { "walk": 10, "fly": 60 },
+      "str": 15,
+      "dex": 16,
+      "con": 11,
+      "int": 2,
+      "wis": 12,
+      "cha": 6,
+      "passive": 11,
+      "trait": [
+        {
+          "name": "Echolocation",
+          "entries": ["The bat can't use its blindsight while deafened."]
+        },
+        {
+          "name": "Keen Hearing",
+          "entries": ["The bat has advantage on Wisdom (Perception) checks that rely on hearing."]
+        }
+      ],
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@damage 1d6+2} piercing damage."]
+        }
+      ],
+      "senseTags": ["B"],
+      "senses": [
+        {
+          "type": "blindsight",
+          "range": "60 ft."
+        }
+      ]
+    },
+    {
+      "name": "Rat",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0,
+      "hp": { "average": 1, "formula": "1d4-1" },
+      "ac": 10,
+      "speed": { "walk": 20 },
+      "str": 2,
+      "dex": 11,
+      "con": 9,
+      "int": 2,
+      "wis": 10,
+      "cha": 4,
+      "passive": 10,
+      "trait": [
+        {
+          "name": "Keen Smell",
+          "entries": ["The rat has advantage on Wisdom (Perception) checks that rely on smell."]
+        }
+      ],
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 0} to hit, reach 5 ft., one target. {@damage 1} piercing damage."]
+        }
+      ]
+    },
+    {
+      "name": "Giant Rat",
+      "source": "PHB",
+      "type": "beast",
+      "size": "S",
+      "cr": 0.125,
+      "hp": { "average": 7, "formula": "2d6" },
+      "ac": 12,
+      "speed": { "walk": 30 },
+      "str": 7,
+      "dex": 15,
+      "con": 11,
+      "int": 2,
+      "wis": 10,
+      "cha": 4,
+      "passive": 10,
+      "trait": [
+        {
+          "name": "Keen Smell",
+          "entries": ["The rat has advantage on Wisdom (Perception) checks that rely on smell."]
+        },
+        {
+          "name": "Pack Tactics",
+          "entries": ["The rat has advantage on an attack roll against a creature if at least one of the rat's allies is within 5 ft. of the creature and the ally isn't incapacitated."]
+        }
+      ],
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@damage 1d4+2} piercing damage."]
+        }
+      ]
+    }
+  ]
+}

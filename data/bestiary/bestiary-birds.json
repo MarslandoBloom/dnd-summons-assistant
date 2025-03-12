@@ -1,0 +1,146 @@
+{
+  "monster": [
+    {
+      "name": "Eagle",
+      "source": "PHB",
+      "type": "beast",
+      "size": "S",
+      "cr": 0,
+      "hp": { "average": 3, "formula": "1d4+1" },
+      "ac": 12,
+      "speed": { "walk": 10, "fly": 60 },
+      "str": 6,
+      "dex": 15,
+      "con": 10,
+      "int": 2,
+      "wis": 14,
+      "cha": 7,
+      "passive": 14,
+      "skill": {
+        "perception": "+4"
+      },
+      "action": [
+        {
+          "name": "Talons",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@damage 1d4+2} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Sight",
+          "entries": ["The eagle has advantage on Wisdom (Perception) checks that rely on sight."]
+        }
+      ]
+    },
+    {
+      "name": "Hawk",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0,
+      "hp": { "average": 1, "formula": "1d4-1" },
+      "ac": 13,
+      "speed": { "walk": 10, "fly": 60 },
+      "str": 5,
+      "dex": 16,
+      "con": 8,
+      "int": 2,
+      "wis": 14,
+      "cha": 6,
+      "passive": 14,
+      "skill": {
+        "perception": "+4"
+      },
+      "action": [
+        {
+          "name": "Talons",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@damage 1} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Sight",
+          "entries": ["The hawk has advantage on Wisdom (Perception) checks that rely on sight."]
+        }
+      ]
+    },
+    {
+      "name": "Owl",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0,
+      "hp": { "average": 1, "formula": "1d4-1" },
+      "ac": 11,
+      "speed": { "walk": 5, "fly": 60 },
+      "str": 3,
+      "dex": 13,
+      "con": 8,
+      "int": 2,
+      "wis": 12,
+      "cha": 7,
+      "passive": 13,
+      "skill": {
+        "perception": "+3",
+        "stealth": "+3"
+      },
+      "action": [
+        {
+          "name": "Talons",
+          "entries": ["{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@damage 1} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Hearing and Sight",
+          "entries": ["The owl has advantage on Wisdom (Perception) checks that rely on hearing or sight."]
+        },
+        {
+          "name": "Flyby",
+          "entries": ["The owl doesn't provoke opportunity attacks when it flies out of an enemy's reach."]
+        }
+      ]
+    },
+    {
+      "name": "Giant Owl",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 0.25,
+      "hp": { "average": 19, "formula": "3d10+3" },
+      "ac": 12,
+      "speed": { "walk": 5, "fly": 60 },
+      "str": 13,
+      "dex": 15,
+      "con": 12,
+      "int": 8,
+      "wis": 13,
+      "cha": 10,
+      "passive": 13,
+      "skill": {
+        "perception": "+5",
+        "stealth": "+4"
+      },
+      "action": [
+        {
+          "name": "Talons",
+          "entries": ["{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@damage 2d6+1} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Hearing and Sight",
+          "entries": ["The giant owl has advantage on Wisdom (Perception) checks that rely on hearing or sight."]
+        },
+        {
+          "name": "Flyby",
+          "entries": ["The giant owl doesn't provoke opportunity attacks when it flies out of an enemy's reach."]
+        }
+      ],
+      "language": [
+        "Giant Owl",
+        "understands Common, Elvish, and Sylvan but can't speak them"
+      ]
+    }
+  ]
+}

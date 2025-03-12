@@ -1,0 +1,156 @@
+{
+  "monster": [
+    {
+      "name": "Poisonous Snake",
+      "source": "PHB",
+      "type": "beast",
+      "size": "T",
+      "cr": 0.125,
+      "hp": { "average": 2, "formula": "1d4" },
+      "ac": 13,
+      "speed": { "walk": 30, "swim": 30 },
+      "str": 2,
+      "dex": 16,
+      "con": 11,
+      "int": 1,
+      "wis": 10,
+      "cha": 3,
+      "passive": 10,
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@damage 1} piercing damage, and the target must make a DC 10 Constitution saving throw, taking {@damage 2d4} poison damage on a failed save, or half as much damage on a successful one."]
+        }
+      ]
+    },
+    {
+      "name": "Constrictor Snake",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 0.25,
+      "hp": { "average": 13, "formula": "2d10+2" },
+      "ac": 12,
+      "speed": { "walk": 30, "swim": 30 },
+      "str": 15,
+      "dex": 14,
+      "con": 12,
+      "int": 1,
+      "wis": 10,
+      "cha": 3,
+      "passive": 10,
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@damage 1d6+2} piercing damage."]
+        },
+        {
+          "name": "Constrict",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@damage 1d8+2} bludgeoning damage, and the target is {@condition grappled} (escape DC 14). Until this grapple ends, the creature is {@condition restrained}, and the snake can't constrict another target."]
+        }
+      ]
+    },
+    {
+      "name": "Giant Constrictor Snake",
+      "source": "PHB",
+      "type": "beast",
+      "size": "H",
+      "cr": 2,
+      "hp": { "average": 60, "formula": "8d12+8" },
+      "ac": 12,
+      "speed": { "walk": 30, "swim": 30 },
+      "str": 19,
+      "dex": 14,
+      "con": 12,
+      "int": 1,
+      "wis": 10,
+      "cha": 3,
+      "skill": {
+        "perception": "+2"
+      },
+      "passive": 12,
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 6} to hit, reach 10 ft., one creature. {@damage 2d6+4} piercing damage."]
+        },
+        {
+          "name": "Constrict",
+          "entries": ["{@atk mw} {@hit 6} to hit, reach 5 ft., one creature. {@damage 2d8+4} bludgeoning damage, and the target is {@condition grappled} (escape DC 16). Until this grapple ends, the creature is {@condition restrained}, and the snake can't constrict another target."]
+        }
+      ]
+    },
+    {
+      "name": "Crocodile",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 0.5,
+      "hp": { "average": 19, "formula": "3d10+3" },
+      "ac": 12,
+      "speed": { "walk": 20, "swim": 30 },
+      "str": 15,
+      "dex": 10,
+      "con": 13,
+      "int": 2,
+      "wis": 10,
+      "cha": 5,
+      "skill": {
+        "stealth": "+2"
+      },
+      "passive": 10,
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@damage 1d10+2} piercing damage, and the target is {@condition grappled} (escape DC 12). Until this grapple ends, the target is {@condition restrained}, and the crocodile can't bite another target."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Hold Breath",
+          "entries": ["The crocodile can hold its breath for 15 minutes."]
+        }
+      ]
+    },
+    {
+      "name": "Giant Crocodile",
+      "source": "PHB",
+      "type": "beast",
+      "size": "H",
+      "cr": 5,
+      "hp": { "average": 85, "formula": "9d12+27" },
+      "ac": 14,
+      "speed": { "walk": 30, "swim": 50 },
+      "str": 21,
+      "dex": 9,
+      "con": 17,
+      "int": 2,
+      "wis": 10,
+      "cha": 7,
+      "skill": {
+        "stealth": "+5"
+      },
+      "passive": 10,
+      "action": [
+        {
+          "name": "Multiattack",
+          "entries": ["The crocodile makes two attacks: one with its bite and one with its tail."]
+        },
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 8} to hit, reach l5 ft., one target. {@damage 3d10+5} piercing damage, and the target is {@condition grappled} (escape DC 16). Until this grapple ends, the target is {@condition restrained}, and the crocodile can't bite another target."]
+        },
+        {
+          "name": "Tail",
+          "entries": ["{@atk mw} {@hit 8} to hit, reach 10 ft., one target not grappled by the crocodile. {@damage 2d8+5} bludgeoning damage. If the target is a creature, it must succeed on a DC 16 Strength saving throw or be knocked {@condition prone}."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Hold Breath",
+          "entries": ["The crocodile can hold its breath for 30 minutes."]
+        }
+      ]
+    }
+  ]
+}

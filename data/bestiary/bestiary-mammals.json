@@ -1,0 +1,199 @@
+{
+  "monster": [
+    {
+      "name": "Wolf",
+      "source": "PHB",
+      "type": "beast",
+      "size": "M",
+      "cr": 0.25,
+      "hp": { "average": 11, "formula": "2d8+2" },
+      "ac": 13,
+      "speed": { "walk": 40 },
+      "str": 12,
+      "dex": 15,
+      "con": 12,
+      "int": 3,
+      "wis": 12,
+      "cha": 6,
+      "passive": 13,
+      "skill": {
+        "perception": "+3",
+        "stealth": "+4"
+      },
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@damage 2d4+2} piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Hearing and Smell",
+          "entries": ["The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."]
+        },
+        {
+          "name": "Pack Tactics",
+          "entries": ["The wolf has advantage on attack rolls against a creature if at least one of the wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated."]
+        }
+      ]
+    },
+    {
+      "name": "Dire Wolf",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 1,
+      "hp": { "average": 37, "formula": "5d10+10" },
+      "ac": 14,
+      "speed": { "walk": 50 },
+      "str": 17,
+      "dex": 15,
+      "con": 15,
+      "int": 3,
+      "wis": 12,
+      "cha": 7,
+      "passive": 13,
+      "skill": {
+        "perception": "+3",
+        "stealth": "+4"
+      },
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@damage 2d6+3} piercing damage. If the target is a creature, it must succeed on a DC 13 Strength saving throw or be knocked prone."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Hearing and Smell",
+          "entries": ["The dire wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."]
+        },
+        {
+          "name": "Pack Tactics",
+          "entries": ["The dire wolf has advantage on attack rolls against a creature if at least one of the dire wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated."]
+        }
+      ]
+    },
+    {
+      "name": "Brown Bear",
+      "source": "PHB",
+      "type": "beast",
+      "size": "L",
+      "cr": 1,
+      "hp": { "average": 34, "formula": "4d10+12" },
+      "ac": 11,
+      "speed": { "walk": 40, "climb": 30 },
+      "str": 19,
+      "dex": 10,
+      "con": 16,
+      "int": 2,
+      "wis": 13,
+      "cha": 7,
+      "passive": 13,
+      "skill": {
+        "perception": "+3"
+      },
+      "action": [
+        {
+          "name": "Multiattack",
+          "entries": ["The bear makes two attacks: one with its bite and one with its claws."]
+        },
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@damage 1d8+4} piercing damage."]
+        },
+        {
+          "name": "Claws",
+          "entries": ["{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@damage 2d6+4} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Smell",
+          "entries": ["The bear has advantage on Wisdom (Perception) checks that rely on smell."]
+        }
+      ]
+    },
+    {
+      "name": "Black Bear",
+      "source": "PHB",
+      "type": "beast",
+      "size": "M",
+      "cr": 0.5,
+      "hp": { "average": 19, "formula": "3d8+6" },
+      "ac": 11,
+      "speed": { "walk": 40, "climb": 30 },
+      "str": 15,
+      "dex": 10,
+      "con": 14,
+      "int": 2,
+      "wis": 12,
+      "cha": 7,
+      "passive": 13,
+      "skill": {
+        "perception": "+3"
+      },
+      "action": [
+        {
+          "name": "Multiattack",
+          "entries": ["The bear makes two attacks: one with its bite and one with its claws."]
+        },
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@damage 1d6+2} piercing damage."]
+        },
+        {
+          "name": "Claws",
+          "entries": ["{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@damage 2d4+2} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Smell",
+          "entries": ["The bear has advantage on Wisdom (Perception) checks that rely on smell."]
+        }
+      ]
+    },
+    {
+      "name": "Panther",
+      "source": "PHB",
+      "type": "beast",
+      "size": "M",
+      "cr": 0.25,
+      "hp": { "average": 13, "formula": "3d8" },
+      "ac": 12,
+      "speed": { "walk": 50, "climb": 40 },
+      "str": 14,
+      "dex": 15,
+      "con": 10,
+      "int": 3,
+      "wis": 14,
+      "cha": 7,
+      "passive": 14,
+      "skill": {
+        "perception": "+4",
+        "stealth": "+6"
+      },
+      "action": [
+        {
+          "name": "Bite",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@damage 1d6+2} piercing damage."]
+        },
+        {
+          "name": "Claw",
+          "entries": ["{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@damage 1d4+2} slashing damage."]
+        }
+      ],
+      "trait": [
+        {
+          "name": "Keen Smell",
+          "entries": ["The panther has advantage on Wisdom (Perception) checks that rely on smell."]
+        },
+        {
+          "name": "Pounce",
+          "entries": ["If the panther moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn, that target must succeed on a DC 12 Strength saving throw or be knocked prone. If the target is prone, the panther can make one bite attack against it as a bonus action."]
+        }
+      ]
+    }
+  ]
+}
