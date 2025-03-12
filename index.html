@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D 5e Summons Assistant</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>D&D 5e Summons Assistant</h1>
+            <div id="data-status">
+                <span id="status-message">Data status: Not loaded</span>
+                <button id="load-data-btn" class="primary-btn">Load Data</button>
+            </div>
+        </header>
+
+        <main>
+            <section id="app-container">
+                <div class="section-placeholder">
+                    <h2>Welcome to the D&D 5e Summons Assistant</h2>
+                    <p>This tool helps Druids and other spellcasters manage their summoned creatures during combat.</p>
+                    <p>To get started, click the "Load Data" button above to fetch the necessary creature information.</p>
+                    <div class="loading-indicator hidden">
+                        <div class="spinner"></div>
+                        <p>Loading data, please wait...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>D&D 5e Summons Assistant | <a href="https://github.com/MarslandoBloom/dnd-summons-assistant" target="_blank">GitHub Repository</a></p>
+        </footer>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/main.js" type="module"></script>
+</body>
+</html>
