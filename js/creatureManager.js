@@ -5,6 +5,7 @@
  */
 
 import * as dataManager from './dataManager.js';
+import * as statBlockRenderer from './statBlockRenderer.js';
 
 // In-memory cache for filter options and search results
 const filterCache = {
@@ -814,160 +815,103 @@ function renderFavorites() {
 }
 
 /**
- * Display the details of a creature
+ * Display details of a creature
  * @param {string} creatureId - The ID of the creature to display
  */
 async function displayCreatureDetails(creatureId) {
     try {
-        // Get the creature data
-        const creatures = await dataManager.getAllCreatures();
-        const creature = creatures.find(c => c.id === creatureId);
-        
-        if (!creature) {
-            throw new Error(`Creature with ID ${creatureId} not found`);
-        }
-        
-        // Check if it's a favorite
-        const favoriteEntry = favorites.find(fav => fav.creatureId === creatureId);
-        const isFav = Boolean(favoriteEntry);
-        const favCount = favoriteEntry ? favoriteEntry.count : 1;
-        
-        // Get the detail container
         const detailContainer = document.getElementById('creature-detail');
         if (!detailContainer) return;
         
-        // Determine if this is a 5e Tools format creature
-        const is5eToolsFormat = creature.sourceFormat === '5eTools';
+        // Fetch all creatures for lookup purposes
+        const allCreatures = await dataManager.getAllCreatures();
         
-        // Create the statblock HTML with enhanced fields for 5e Tools format
-        const statblockHTML = `
-            <div class="statblock">
-                <div class="statblock-header">
-                    <h2 class="creature-name">${creature.name}</h2>
-                    <div class="creature-subtitle">
-                        ${getSizeName(creature.size)} ${capitalizeFirstLetter(creature.type)}, CR ${formatCR(creature.cr)}
-                        ${is5eToolsFormat && creature.alignment ? `<br>${creature.alignment}` : ''}
-                    </div>
-                </div>
-                
-                <div class="statblock-section">
-                    <div class="statblock-property">
-                        <span class="property-name">Armor Class</span>
-                        <span class="property-value">${creature.ac}</span>
-                    </div>
-                    <div class="statblock-property">
-                        <span class="property-name">Hit Points</span>
-                        <span class="property-value">${creature.hp.average} ${creature.hp.formula ? `(${creature.hp.formula})` : ''}</span>
-                    </div>
-                    <div class="statblock-property">
-                        <span class="property-name">Speed</span>
-                        <span class="property-value">${formatSpeed(creature.speed)}</span>
-                    </div>
-                </div>
-                
-                <div class="statblock-section ability-scores">
-                    <div class="ability-score">
-                        <div class="ability-name">STR</div>
-                        <div class="ability-value">${creature.abilities.str}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.strMod)}</div>
-                    </div>
-                    <div class="ability-score">
-                        <div class="ability-name">DEX</div>
-                        <div class="ability-value">${creature.abilities.dex}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.dexMod)}</div>
-                    </div>
-                    <div class="ability-score">
-                        <div class="ability-name">CON</div>
-                        <div class="ability-value">${creature.abilities.con}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.conMod)}</div>
-                    </div>
-                    <div class="ability-score">
-                        <div class="ability-name">INT</div>
-                        <div class="ability-value">${creature.abilities.int}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.intMod)}</div>
-                    </div>
-                    <div class="ability-score">
-                        <div class="ability-name">WIS</div>
-                        <div class="ability-value">${creature.abilities.wis}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.wisMod)}</div>
-                    </div>
-                    <div class="ability-score">
-                        <div class="ability-name">CHA</div>
-                        <div class="ability-value">${creature.abilities.cha}</div>
-                        <div class="ability-modifier">${formatModifier(creature.abilities.chaMod)}</div>
-                    </div>
-                </div>
-                
-                ${is5eToolsFormat ? renderAdditionalProperties(creature) : ''}
-                
-                ${creature.specialAbilities && creature.specialAbilities.length > 0 ? `
-                <div class="statblock-section">
-                    <h3 class="section-title">Special Abilities</h3>
-                    ${creature.specialAbilities.map(ability => `
-                        <div class="statblock-trait">
-                            <span class="trait-name">${ability.name}.</span>
-                            <span class="trait-description">${ability.description}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                ` : ''}
-                
-                ${creature.attacks && creature.attacks.length > 0 ? `
-                <div class="statblock-section">
-                    <h3 class="section-title">Actions</h3>
-                    ${creature.attacks.map(attack => `
-                        <div class="statblock-action">
-                            <span class="action-name">${attack.name}.</span>
-                            <span class="action-description">${formatAttackDescription(attack)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                ` : ''}
-                
-                ${is5eToolsFormat && creature.environment ? `
-                <div class="statblock-section">
-                    <h3 class="section-title">Environment</h3>
-                    <div class="statblock-environment">
-                        ${Array.isArray(creature.environment) ? creature.environment.join(', ') : creature.environment}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <div class="statblock-footer">
-                    <div class="statblock-source">Source: ${creature.source}</div>
-                    <div class="statblock-actions">
-                        <button id="add-to-combat-btn" class="primary-btn" data-id="${creature.id}">
-                            Add to Combat <span class="quantity-badge">${favCount}</span>
-                        </button>
-                        <button id="toggle-favorite-btn" class="secondary-btn ${isFav ? 'favorite' : ''}" data-id="${creature.id}" data-count="${favCount}">
-                            ${isFav ? 'Edit Favorite' : 'Add to Favorites'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
+        // A function to fetch a monster by name and source
+        const fetchMonster = (name, source) => {
+            return allCreatures.find(c => 
+                c.name === name && c.source === source
+            );
+        };
         
-        // Render the statblock
-        detailContainer.innerHTML = statblockHTML;
+        // Get rendering options (for variants or scaling)
+        const options = {};
         
-        // Add event listener for favorite button
-        const favoriteBtn = document.getElementById('toggle-favorite-btn');
-        if (favoriteBtn) {
-            favoriteBtn.addEventListener('click', () => {
-                const creatureId = favoriteBtn.getAttribute('data-id');
-                const currentCount = parseInt(favoriteBtn.getAttribute('data-count'));
-                showFavoriteQuantityDialog(creatureId, currentCount);
-            });
+        // If this is a summonable creature, add context for variable stats
+        const creature = allCreatures.find(c => c.id === creatureId);
+        if (creature && creature.summonedBySpellLevel) {
+            options.spellLevel = creature.summonedBySpellLevel;
         }
         
-        // Add event listener for add to combat button
-        const addToCombatBtn = document.getElementById('add-to-combat-btn');
-        if (addToCombatBtn) {
-            addToCombatBtn.addEventListener('click', () => {
-                const creatureId = addToCombatBtn.getAttribute('data-id');
-                showCombatQuantityDialog(creatureId, favCount);
+        // Use the statBlockRenderer to generate the HTML
+        const statBlockHtml = statBlockRenderer.displayCreatureDetails(
+            creatureId,
+            () => allCreatures,
+            fetchMonster,
+            options
+        );
+        
+        // Set the HTML to the container
+        detailContainer.innerHTML = statBlockHtml;
+        
+        // Add event listeners for variant links if present
+        const variantLinks = detailContainer.querySelectorAll('.variant-link');
+        variantLinks.forEach(link => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                const variantId = link.getAttribute('data-id');
+                const variantName = link.getAttribute('data-variant');
+                
+                // Update options for the specific variant
+                options.variant = variantName;
+                
+                // Re-render with the selected variant
+                displayCreatureDetails(variantId);
             });
+        });
+        
+        // Add the favorite and combat buttons if they don't exist in the statblock
+        if (!detailContainer.querySelector('#toggle-favorite-btn')) {
+            // Check if it's a favorite
+            const favoriteEntry = favorites.find(fav => fav.creatureId === creatureId);
+            const isFav = Boolean(favoriteEntry);
+            const favCount = favoriteEntry ? favoriteEntry.count : 1;
+            
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'statblock-actions';
+            actionsContainer.innerHTML = `
+                <button id="add-to-combat-btn" class="primary-btn" data-id="${creatureId}">
+                    Add to Combat <span class="quantity-badge">${favCount}</span>
+                </button>
+                <button id="toggle-favorite-btn" class="secondary-btn ${isFav ? 'favorite' : ''}" data-id="${creatureId}" data-count="${favCount}">
+                    ${isFav ? 'Edit Favorite' : 'Add to Favorites'}
+                </button>
+            `;
+            
+            // Append to the statblock
+            const statblock = detailContainer.querySelector('.statblock');
+            if (statblock) {
+                statblock.appendChild(actionsContainer);
+                
+                // Add event listeners
+                const favoriteBtn = document.getElementById('toggle-favorite-btn');
+                if (favoriteBtn) {
+                    favoriteBtn.addEventListener('click', () => {
+                        const creatureId = favoriteBtn.getAttribute('data-id');
+                        const currentCount = parseInt(favoriteBtn.getAttribute('data-count'));
+                        showFavoriteQuantityDialog(creatureId, currentCount);
+                    });
+                }
+                
+                const addToCombatBtn = document.getElementById('add-to-combat-btn');
+                if (addToCombatBtn) {
+                    addToCombatBtn.addEventListener('click', () => {
+                        const creatureId = addToCombatBtn.getAttribute('data-id');
+                        showCombatQuantityDialog(creatureId, favCount);
+                    });
+                }
+            }
         }
+        
     } catch (error) {
         console.error('Error displaying creature details:', error);
         
@@ -982,83 +926,6 @@ async function displayCreatureDetails(creatureId) {
             `;
         }
     }
-}
-
-/**
- * Render additional properties for 5e Tools formatted creatures
- * @param {Object} creature - The creature object
- * @returns {string} HTML for additional properties
- */
-function renderAdditionalProperties(creature) {
-    let html = '';
-    
-    // Skills
-    if (creature.skills && Object.keys(creature.skills).length > 0) {
-        html += `
-            <div class="statblock-section">
-                <div class="statblock-property">
-                    <span class="property-name">Skills</span>
-                    <span class="property-value">
-                        ${Object.entries(creature.skills).map(([skill, bonus]) => 
-                            `${capitalizeFirstLetter(skill)} ${bonus}`
-                        ).join(', ')}
-                    </span>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Senses
-    if (creature.senses && creature.senses.length > 0) {
-        html += `
-            <div class="statblock-section">
-                <div class="statblock-property">
-                    <span class="property-name">Senses</span>
-                    <span class="property-value">${Array.isArray(creature.senses) ? creature.senses.join(', ') : creature.senses}</span>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Languages
-    if (creature.languages && creature.languages.length > 0) {
-        html += `
-            <div class="statblock-section">
-                <div class="statblock-property">
-                    <span class="property-name">Languages</span>
-                    <span class="property-value">${Array.isArray(creature.languages) ? creature.languages.join(', ') : creature.languages}</span>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Damage types
-    if (creature.damageTypes && creature.damageTypes.length > 0) {
-        html += `
-            <div class="statblock-section">
-                <div class="statblock-property">
-                    <span class="property-name">Damage Types</span>
-                    <span class="property-value">${creature.damageTypes.map(type => capitalizeFirstLetter(type)).join(', ')}</span>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Condition Immunities
-    if (creature.conditionImmunities && creature.conditionImmunities.length > 0) {
-        html += `
-            <div class="statblock-section">
-                <div class="statblock-property">
-                    <span class="property-name">Condition Immunities</span>
-                    <span class="property-value">${Array.isArray(creature.conditionImmunities) ? 
-                        creature.conditionImmunities.map(condition => capitalizeFirstLetter(condition)).join(', ') : 
-                        capitalizeFirstLetter(creature.conditionImmunities)}</span>
-                </div>
-            </div>
-        `;
-    }
-    
-    return html;
 }
 
 /**
@@ -1258,32 +1125,6 @@ function showCombatQuantityDialog(creatureId, defaultCount = 1) {
             document.body.removeChild(dialogOverlay);
         });
     });
-}
-
-/**
- * Format an attack description
- * @param {Object} attack - The attack object
- * @returns {string} Formatted attack description
- */
-function formatAttackDescription(attack) {
-    if (attack.description) {
-        // For 5e Tools format, the description is already processed
-        if (attack.raw && attack.raw.includes('{@')) {
-            return attack.description;
-        }
-        
-        // For standard format, process tags
-        let description = attack.description
-            .replace(/{@atk mw}/g, 'Melee Weapon Attack:')
-            .replace(/{@atk rw}/g, 'Ranged Weapon Attack:')
-            .replace(/{@hit (\d+)}/g, '+$1')
-            .replace(/{@damage (.+?)}/g, '$1');
-        
-        return description;
-    }
-    
-    // Fallback for attacks without a description
-    return `${attack.attackType === 'melee' ? 'Melee' : 'Ranged'} attack: +${attack.hitBonus || '?'} to hit, ${attack.damage || '?'} damage.`;
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 import * as dataManager from './dataManager.js';
 import * as creatureManager from './creatureManager.js';
+import * as statBlockRenderer from './statBlockRenderer.js';
 
 // DOM Elements
 const statusMessage = document.getElementById('status-message');
