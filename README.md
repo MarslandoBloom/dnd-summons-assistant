@@ -9,6 +9,7 @@ This tool connects to D&D 5e resources, provides intuitive creature selection, a
 ### Core Features
 
 - Search and filter summonable creatures from the D&D 5e bestiary
+- View complete, accurate statblocks including variants and templated creatures
 - Track enemies with varying levels of known information
 - Visual combat interface with drag-and-drop token system
 - Automatic attack roll and damage calculation following D&D 5e rules
@@ -34,6 +35,19 @@ The application can load creature data from JSON files in the 5etools format. Th
 
 All data is processed and stored in your browser's IndexedDB storage for offline access.
 
+## Statblock Rendering
+
+The application features a comprehensive statblock renderer that:
+
+- Displays complete, accurate D&D 5e creature statblocks
+- Properly handles creature variants and templates (e.g., "Bestial Spirit" air/land/water variants)
+- Accurately processes creatures that inherit from other creatures via `_copy` properties
+- Correctly renders complex formatting tags for attacks, damage, and abilities
+- Supports variable stats based on spell level and other parameters
+- Provides an intuitive interface for selecting between creature variants
+
+When viewing a creature with variants (like summoned spirits), you'll be presented with a selection screen to choose the specific variant you want to view.
+
 ## Modules Implemented
 
 ### Module 1: Basic Project Setup
@@ -50,6 +64,19 @@ All data is processed and stored in your browser's IndexedDB storage for offline
 - Data statistics visualization
 - Search functionality with proper formatting of challenge ratings
 - Visual feedback for successful data operations
+
+### Module 3: Creature Manager
+- Comprehensive creature filtering and searching
+- Detailed statblock display with D&D formatting
+- Favorites management system
+- Multiple view options for different creature types
+
+### Module 4: Enhanced Statblock Renderer
+- Complete and accurate creature statblock rendering
+- Support for creature variants and templates
+- Proper processing of complex bestiary data structures
+- Advanced formatting of abilities, attacks, and traits
+- Variant selection interface for multi-form creatures
 
 ## Technical Information
 
