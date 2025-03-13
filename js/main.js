@@ -3,16 +3,20 @@
  * Main JavaScript Entry Point
  */
 import * as dataManager from './dataManager.js';
+import * as creatureManager from './creatureManager.js';
 
 // DOM Elements
 const statusMessage = document.getElementById('status-message');
 const loadingIndicator = document.querySelector('.loading-indicator');
 const appContainer = document.getElementById('app-container');
+const navTabs = document.querySelector('.app-navigation');
+const tabContent = document.getElementById('tab-content');
 
 // Application State
 const appState = {
     isDataLoaded: false,
-    isLoading: false
+    isLoading: false,
+    activeTab: 'creature-manager'
 };
 
 /**
@@ -103,8 +107,107 @@ function updateDataStatus(isLoaded) {
  * Set up event listeners for user interactions
  */
 function setupEventListeners() {
-    // Any global event listeners can be added here
-    // (The load data button is now added dynamically)
+    // Listen for notification requests
+    document.addEventListener('showNotification', (event) => {
+        if (event.detail) {
+            showNotification(event.detail.message, event.detail.type);
+        }
+    });
+    
+    // Set up tab navigation
+    const tabs = document.querySelectorAll('.nav-tab');
+    if (tabs.length > 0) {
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (event) => {
+                event.preventDefault();
+                const tabId = tab.getAttribute('data-tab');
+                switchTab(tabId);
+            });
+        });
+    }
+}
+
+/**
+ * Switch between tabs in the app
+ * @param {string} tabId - The ID of the tab to switch to
+ */
+function switchTab(tabId) {
+    // Update active tab state
+    appState.activeTab = tabId;
+    
+    // Update active tab styling
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => {
+        if (tab.getAttribute('data-tab') === tabId) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+    
+    // Render the content for the active tab
+    renderTabContent(tabId);
+}
+
+/**
+ * Render the content for the active tab
+ * @param {string} tabId - The ID of the tab to render
+ */
+function renderTabContent(tabId) {
+    // Clear existing content
+    tabContent.innerHTML = '';
+    
+    // Render appropriate content based on tab
+    switch (tabId) {
+        case 'creature-manager':
+            creatureManager.renderCreatureManager(tabContent);
+            break;
+        case 'enemy-tracker':
+            renderEnemyTrackerPlaceholder();
+            break;
+        case 'combat-arena':
+            renderCombatArenaPlaceholder();
+            break;
+        default:
+            creatureManager.renderCreatureManager(tabContent);
+    }
+}
+
+/**
+ * Render placeholder for enemy tracker (will be implemented in Module 4)
+ */
+function renderEnemyTrackerPlaceholder() {
+    tabContent.innerHTML = `
+        <div class="placeholder-content">
+            <h2>Enemy Tracker</h2>
+            <p>This feature will be implemented in the next development phase (Module 4).</p>
+            <p>The Enemy Tracker will allow you to:</p>
+            <ul>
+                <li>Add known enemies from the bestiary</li>
+                <li>Create custom enemies with partial information</li>
+                <li>Track enemy stats and conditions during combat</li>
+            </ul>
+        </div>
+    `;
+}
+
+/**
+ * Render placeholder for combat arena (will be implemented in Module 5)
+ */
+function renderCombatArenaPlaceholder() {
+    tabContent.innerHTML = `
+        <div class="placeholder-content">
+            <h2>Combat Arena</h2>
+            <p>This feature will be implemented in future development phases (Modules 5 & 6).</p>
+            <p>The Combat Arena will allow you to:</p>
+            <ul>
+                <li>Visualize combat with drag-and-drop tokens</li>
+                <li>Manage initiative and turn order</li>
+                <li>Perform attacks and calculate damage</li>
+                <li>Track creature health and conditions</li>
+            </ul>
+        </div>
+    `;
 }
 
 /**
@@ -198,7 +301,7 @@ function renderUploadInterface() {
                     <li><strong>bestiary-mammals.json</strong>: Contains mammals like Wolf, Bear, Panther</li>
                     <li><strong>bestiary-reptiles.json</strong>: Contains reptiles like Snake, Crocodile</li>
                 </ul>
-                <p><em>Note: These sample files were created by Claude specifically for development purposes and contain a subset of creatures. They can be found in the project repository.</em></p>
+                <p><em>Note: These sample files were created specifically for development purposes and contain a subset of creatures. They can be found in the project repository.</em></p>
                 
                 <h4>Data Storage Information</h4>
                 <p>Your uploaded bestiary data is stored in your browser's IndexedDB storage. This data will be lost in the following cases:</p>
@@ -328,198 +431,20 @@ function renderUploadInterface() {
  * Render the main application interface
  */
 async function renderAppInterface() {
-    const data = dataManager.getData();
-    const stats = await dataManager.getDataStatistics();
+    // Hide the app container
+    appContainer.innerHTML = '';
     
-    appContainer.innerHTML = `
-        <div class="app-interface">
-            <div class="success-banner">
-                <div class="success-icon">✓</div>
-                <div class="success-message">Data successfully loaded!</div>
-            </div>
-            
-            <h2>D&D 5e Bestiary Data Loaded</h2>
-            
-            <div class="data-summary">
-                <p><strong>Version:</strong> ${data.version}</p>
-                <p><strong>Last Updated:</strong> ${new Date(data.lastUpdated).toLocaleString()}</p>
-                <p><strong>Creatures:</strong> ${data.creatureCount}</p>
-            </div>
-            
-            <div class="data-actions">
-                <button id="export-data-btn" class="secondary-btn">Export Data</button>
-                <button id="import-data-btn" class="secondary-btn">Import Data</button>
-                <input type="file" id="import-file" accept=".json" class="hidden" />
-            </div>
-            
-            <div class="data-actions-info">
-                <p><strong>Note:</strong> The Export and Import buttons are for backing up and restoring data processed by this application. Use Export to save your current creature database, and Import to restore a previously exported file. To load raw bestiary files from external sources, please use the "Refresh Data" button and then upload the files.</p>
-            </div>
-            
-            <div class="data-stats">
-                <h3>Data Statistics</h3>
-                <div class="stats-grid">
-                    <div class="stats-card">
-                        <h4>By Type</h4>
-                        <ul>
-                            ${Object.entries(stats.typeStats)
-                                .sort((a, b) => b[1] - a[1])
-                                .slice(0, 5)
-                                .map(([type, count]) => `<li>${type}: <strong>${count}</strong></li>`)
-                                .join('')}
-                        </ul>
-                    </div>
-                    <div class="stats-card">
-                        <h4>By CR</h4>
-                        <ul>
-                            ${Object.entries(stats.crStats)
-                                .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-                                .slice(0, 5)
-                                .map(([cr, count]) => `<li>CR ${formatCR(cr)}: <strong>${count}</strong></li>`)
-                                .join('')}
-                        </ul>
-                    </div>
-                    <div class="stats-card">
-                        <h4>By Size</h4>
-                        <ul>
-                            ${Object.entries(stats.sizeStats)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([size, count]) => `<li>${getSizeName(size)}: <strong>${count}</strong></li>`)
-                                .join('')}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="data-sample">
-                <h3>Sample Creature Search</h3>
-                <div class="search-container">
-                    <input type="text" id="creature-search" placeholder="Search creatures..." class="search-input" />
-                    <div id="search-results" class="search-results"></div>
-                </div>
-            </div>
-            
-            <p class="next-steps">
-                In the next development phases, we'll add creature management, enemy tracking, 
-                and the visual combat interface. For now, you can search through the loaded bestiary data.
-            </p>
-        </div>
-    `;
+    // Show the navigation tabs
+    navTabs.classList.remove('hidden');
     
-    // Make the success banner disappear after a few seconds
-    setTimeout(() => {
-        const banner = document.querySelector('.success-banner');
-        if (banner) {
-            banner.classList.add('fade-out');
-            setTimeout(() => {
-                if (banner) banner.remove();
-            }, 1000);
-        }
-    }, 3000);
+    // Show the tab content area
+    tabContent.classList.remove('hidden');
     
-    // Set up the export button
-    const exportBtn = document.getElementById('export-data-btn');
-    exportBtn.addEventListener('click', async () => {
-        try {
-            const result = await dataManager.exportData();
-            
-            // Create a temporary link and trigger download
-            const link = document.createElement('a');
-            link.href = result.url;
-            link.download = result.filename;
-            document.body.appendChild(link);
-            link.click();
-            
-            // Clean up
-            setTimeout(() => {
-                document.body.removeChild(link);
-                URL.revokeObjectURL(result.url);
-            }, 100);
-            
-            showNotification('Data exported successfully!', 'success');
-        } catch (error) {
-            console.error('Error exporting data:', error);
-            showNotification(`Error exporting data: ${error.message}`, 'error');
-        }
-    });
+    // Initialize creature manager
+    await creatureManager.initCreatureManager();
     
-    // Set up the import button and file input
-    const importBtn = document.getElementById('import-data-btn');
-    const importFile = document.getElementById('import-file');
-    
-    importBtn.addEventListener('click', () => {
-        importFile.click();
-    });
-    
-    importFile.addEventListener('change', async () => {
-        if (importFile.files.length > 0) {
-            try {
-                // Show loading notification
-                showNotification('Importing data...', 'info', 0);
-                
-                const result = await dataManager.importData(importFile.files[0]);
-                
-                // Remove the loading notification
-                const notification = document.querySelector('.notification');
-                if (notification) notification.remove();
-                
-                showNotification(
-                    `Successfully imported ${result.validCreatures} creatures!`,
-                    'success'
-                );
-                
-                // Refresh the interface
-                updateDataStatus(true);
-                renderAppInterface();
-            } catch (error) {
-                console.error('Error importing data:', error);
-                
-                // Remove the loading notification
-                const notification = document.querySelector('.notification');
-                if (notification) notification.remove();
-                
-                showNotification(`Error importing data: ${error.message}`, 'error');
-            }
-            
-            // Reset the file input
-            importFile.value = '';
-        }
-    });
-    
-    // Set up the search functionality
-    const searchInput = document.getElementById('creature-search');
-    const searchResults = document.getElementById('search-results');
-    
-    searchInput.addEventListener('input', async () => {
-        const searchTerm = searchInput.value.trim();
-        
-        if (searchTerm.length < 2) {
-            searchResults.innerHTML = '';
-            return;
-        }
-        
-        try {
-            const results = await dataManager.searchCreatures(searchTerm);
-            
-            if (results.length === 0) {
-                searchResults.innerHTML = '<div class="no-results">No creatures found</div>';
-                return;
-            }
-            
-            searchResults.innerHTML = results
-                .slice(0, 10) // Limit to 10 results
-                .map(creature => `
-                    <div class="search-result-item">
-                        <span class="creature-name">${creature.name}</span>
-                        <span class="creature-type">${creature.type}, CR ${formatCR(creature.cr)}</span>
-                    </div>
-                `)
-                .join('');
-        } catch (error) {
-            console.error('Error searching creatures:', error);
-            searchResults.innerHTML = '<div class="no-results">Error searching creatures</div>';
-        }
-    });
+    // Render the initial tab (creature manager by default)
+    renderTabContent(appState.activeTab);
 }
 
 /**
