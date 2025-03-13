@@ -673,9 +673,16 @@ function processJSONFile(file) {
                 
                 // Check if this is a bestiary file (should have a "monster" array)
                 if (jsonData.monster && Array.isArray(jsonData.monster)) {
-                    // Process monster data
-                    const stats = processMonsterData(jsonData.monster, file.name);
-                    resolve(stats);
+                    // Detect if this is 5e Tools format
+                    if (is5eToolsFormat(jsonData)) {
+                        // Process using specialized 5e Tools parser
+                        const stats = process5eToolsMonsterData(jsonData.monster, file.name);
+                        resolve(stats);
+                    } else {
+                        // Process using standard parser
+                        const stats = processMonsterData(jsonData.monster, file.name);
+                        resolve(stats);
+                    }
                 } else {
                     console.warn(`File ${file.name} does not contain monster data, skipping`);
                     resolve({
@@ -699,13 +706,44 @@ function processJSONFile(file) {
 }
 
 /**
- * Process monster data from a bestiary file
+ * Detect if a JSON object is in 5e Tools format
+ * @param {Object} jsonData - The parsed JSON data
+ * @returns {boolean} True if it matches 5e Tools format
+ */
+function is5eToolsFormat(jsonData) {
+    if (!jsonData.monster || !Array.isArray(jsonData.monster) || jsonData.monster.length === 0) {
+        return false;
+    }
+    
+    const firstMonster = jsonData.monster[0];
+    
+    // Check for typical 5e Tools patterns
+    return (
+        // Check if size is an array
+        Array.isArray(firstMonster.size) || 
+        // Check for typical formatting tags
+        (firstMonster.action && 
+         Array.isArray(firstMonster.action) && 
+         firstMonster.action.length > 0 && 
+         firstMonster.action[0].entries && 
+         firstMonster.action[0].entries.length > 0 &&
+         typeof firstMonster.action[0].entries[0] === 'string' &&
+         firstMonster.action[0].entries[0].includes('{@')) ||
+        // Check for tag properties
+        firstMonster.senseTags || 
+        firstMonster.damageTags ||
+        (firstMonster.ac && Array.isArray(firstMonster.ac))
+    );
+}
+
+/**
+ * Process monster data from a bestiary file (standard format)
  * @param {Array} monsters - Array of monster objects
  * @param {string} source - Source file name
  * @returns {Object} Statistics about the processed monsters
  */
 function processMonsterData(monsters, source) {
-    console.log(`Processing ${monsters.length} monsters from ${source}`);
+    console.log(`Processing ${monsters.length} monsters from ${source} (standard format)`);
     
     const stats = {
         totalMonsters: monsters.length,
@@ -767,6 +805,665 @@ function processMonsterData(monsters, source) {
 }
 
 /**
+ * Process 5e Tools formatted monster data
+ * @param {Array} monsters - Array of monster objects in 5e Tools format
+ * @param {string} source - Source file name
+ * @returns {Object} Statistics about the processed monsters
+ */
+function process5eToolsMonsterData(monsters, source) {
+    console.log(`Processing ${monsters.length} monsters from ${source} (5e Tools format)`);
+    
+    const stats = {
+        totalMonsters: monsters.length,
+        validMonsters: 0,
+        invalidMonsters: 0
+    };
+    
+    monsters.forEach(monster => {
+        try {
+            // Basic validation
+            if (!monster.name) {
+                stats.invalidMonsters++;
+                return;
+            }
+            
+            // Extract data using specialized 5e Tools extraction functions
+            const creature = {
+                id: `${monster.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${monster.source || 'unk'}`,
+                name: monster.name,
+                source: monster.source || 'Unknown',
+                sourceFormat: '5eTools',
+                type: extract5eToolsType(monster),
+                size: extract5eToolsSize(monster),
+                cr: extract5eToolsCR(monster),
+                hp: extract5eToolsHP(monster),
+                ac: extract5eToolsAC(monster),
+                speed: extract5eToolsSpeed(monster),
+                abilities: extract5eToolsAbilities(monster),
+                attacks: extract5eToolsAttacks(monster),
+                specialAbilities: extract5eToolsTraits(monster),
+                
+                // Additional 5e Tools specific data
+                alignment: extractAlignment(monster),
+                senses: extractSenses(monster),
+                languages: monster.languages || [],
+                skills: monster.skill || {},
+                damageTypes: extractDamageTypes(monster),
+                conditionImmunities: monster.conditionImmune || [],
+                
+                // Save the token status if available (for future enhancements)
+                hasToken: !!monster.hasToken
+            };
+            
+            // Add to our creatures array in memory
+            dataCache.creatures.push(creature);
+            
+            // Update lookup caches
+            // By type
+            if (!dataCache.creaturesByType[creature.type]) {
+                dataCache.creaturesByType[creature.type] = [];
+            }
+            dataCache.creaturesByType[creature.type].push(creature);
+            
+            // By CR
+            const crKey = creature.cr.toString();
+            if (!dataCache.creaturesByCR[crKey]) {
+                dataCache.creaturesByCR[crKey] = [];
+            }
+            dataCache.creaturesByCR[crKey].push(creature);
+            
+            stats.validMonsters++;
+        } catch (error) {
+            console.error(`Error processing 5e Tools monster ${monster.name}:`, error);
+            stats.invalidMonsters++;
+        }
+    });
+    
+    return stats;
+}
+
+/**
+ * Extract creature type from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {string} The creature type
+ */
+function extract5eToolsType(monster) {
+    if (!monster.type) return 'unknown';
+    
+    if (typeof monster.type === 'string') {
+        return monster.type.toLowerCase();
+    }
+    
+    if (typeof monster.type === 'object') {
+        if (Array.isArray(monster.type)) {
+            return monster.type[0].toLowerCase();
+        }
+        
+        if (monster.type.type) {
+            return monster.type.type.toLowerCase();
+        }
+        
+        if (monster.type.value) {
+            return monster.type.value.toLowerCase();
+        }
+    }
+    
+    return 'unknown';
+}
+
+/**
+ * Extract size from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {string} The creature size
+ */
+function extract5eToolsSize(monster) {
+    if (!monster.size) return 'M';
+    
+    if (typeof monster.size === 'string') {
+        return monster.size;
+    }
+    
+    if (Array.isArray(monster.size)) {
+        return monster.size[0]; // Use the first size if multiple
+    }
+    
+    return 'M';
+}
+
+/**
+ * Extract challenge rating from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {number} The challenge rating as a number
+ */
+function extract5eToolsCR(monster) {
+    if (monster.cr === undefined || monster.cr === null) return 0;
+    
+    // Handle simple number format
+    if (typeof monster.cr === 'number') {
+        return monster.cr;
+    }
+    
+    // Handle string format
+    if (typeof monster.cr === 'string') {
+        if (monster.cr === '1/8') return 0.125;
+        if (monster.cr === '1/4') return 0.25;
+        if (monster.cr === '1/2') return 0.5;
+        return parseFloat(monster.cr) || 0;
+    }
+    
+    // Handle object format (e.g., {cr: "1/2"} or {cr: 2})
+    if (typeof monster.cr === 'object' && monster.cr !== null) {
+        if ('cr' in monster.cr) {
+            if (typeof monster.cr.cr === 'string') {
+                if (monster.cr.cr === '1/8') return 0.125;
+                if (monster.cr.cr === '1/4') return 0.25;
+                if (monster.cr.cr === '1/2') return 0.5;
+                return parseFloat(monster.cr.cr) || 0;
+            }
+            return monster.cr.cr || 0;
+        }
+    }
+    
+    return 0;
+}
+
+/**
+ * Extract hit points from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Object} An object with average and formula
+ */
+function extract5eToolsHP(monster) {
+    if (!monster.hp) {
+        return { average: 10, formula: null };
+    }
+    
+    // Handle simple number format
+    if (typeof monster.hp === 'number') {
+        return { average: monster.hp, formula: null };
+    }
+    
+    // Handle object format
+    if (typeof monster.hp === 'object') {
+        // Handle {average: X, formula: "Y"} format
+        if ('average' in monster.hp) {
+            return {
+                average: monster.hp.average,
+                formula: monster.hp.formula || null
+            };
+        }
+        
+        // Handle 5e Tools {special: "X"} format
+        if ('special' in monster.hp) {
+            const hpValue = parseInt(monster.hp.special);
+            return {
+                average: isNaN(hpValue) ? 10 : hpValue,
+                formula: null
+            };
+        }
+    }
+    
+    return { average: 10, formula: null };
+}
+
+/**
+ * Extract armor class from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {number} The armor class value
+ */
+function extract5eToolsAC(monster) {
+    if (!monster.ac) return 10;
+    
+    // Handle simple number format
+    if (typeof monster.ac === 'number') {
+        return monster.ac;
+    }
+    
+    // Handle array format (typical in 5e Tools)
+    if (Array.isArray(monster.ac)) {
+        if (monster.ac.length === 0) return 10;
+        
+        const firstAC = monster.ac[0];
+        
+        // Handle number in array
+        if (typeof firstAC === 'number') {
+            return firstAC;
+        }
+        
+        // Handle object in array {ac: X, from: ["Y"]}
+        if (typeof firstAC === 'object' && firstAC !== null && 'ac' in firstAC) {
+            return firstAC.ac;
+        }
+    }
+    
+    // Handle object format
+    if (typeof monster.ac === 'object' && monster.ac !== null && 'ac' in monster.ac) {
+        return monster.ac.ac;
+    }
+    
+    return 10;
+}
+
+/**
+ * Extract movement speeds from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Object} An object with different movement speeds
+ */
+function extract5eToolsSpeed(monster) {
+    if (!monster.speed) {
+        return { walk: 30 };
+    }
+    
+    // Handle simple number format (walking speed)
+    if (typeof monster.speed === 'number') {
+        return { walk: monster.speed };
+    }
+    
+    // Handle string format (e.g., "30 ft.")
+    if (typeof monster.speed === 'string') {
+        const speedValue = parseInt(monster.speed);
+        return { walk: isNaN(speedValue) ? 30 : speedValue };
+    }
+    
+    // Handle object format (most common in 5e Tools)
+    if (typeof monster.speed === 'object' && monster.speed !== null) {
+        const result = {};
+        
+        // Handle walk/default speed
+        if ('walk' in monster.speed) {
+            result.walk = extractSpeedValue(monster.speed.walk);
+        } else if (monster.speed.valueOf) {
+            result.walk = 30; // Default if not specified
+        }
+        
+        // Handle other movement types
+        ['fly', 'swim', 'climb', 'burrow'].forEach(type => {
+            if (type in monster.speed) {
+                result[type] = extractSpeedValue(monster.speed[type]);
+            }
+        });
+        
+        // Ensure a walk speed is always present
+        if (!result.walk) {
+            result.walk = 30;
+        }
+        
+        return result;
+    }
+    
+    return { walk: 30 };
+}
+
+/**
+ * Extract a speed value from various formats
+ * @param {number|string|Object} speed - The speed data
+ * @returns {number} The speed value in feet
+ */
+function extractSpeedValue(speed) {
+    if (typeof speed === 'number') {
+        return speed;
+    }
+    
+    if (typeof speed === 'string') {
+        // Handle "30 ft." format
+        const match = speed.match(/(\d+)/);
+        if (match) {
+            return parseInt(match[1]);
+        }
+    }
+    
+    if (typeof speed === 'object' && speed !== null) {
+        if ('number' in speed) {
+            return speed.number;
+        }
+    }
+    
+    return 0;
+}
+
+/**
+ * Extract ability scores and modifiers from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Object} An object with ability scores and modifiers
+ */
+function extract5eToolsAbilities(monster) {
+    const abilities = {
+        str: monster.str || 10,
+        dex: monster.dex || 10,
+        con: monster.con || 10,
+        int: monster.int || 10,
+        wis: monster.wis || 10,
+        cha: monster.cha || 10
+    };
+    
+    // Add modifiers
+    for (const [key, value] of Object.entries(abilities)) {
+        abilities[`${key}Mod`] = Math.floor((value - 10) / 2);
+    }
+    
+    return abilities;
+}
+
+/**
+ * Extract attacks from 5e Tools monster's actions
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Array} Array of attack objects
+ */
+function extract5eToolsAttacks(monster) {
+    const attacks = [];
+    
+    if (!monster.action || !Array.isArray(monster.action)) {
+        return attacks;
+    }
+    
+    monster.action.forEach(action => {
+        if (!action.name || !action.entries || !Array.isArray(action.entries) || action.entries.length === 0) {
+            return;
+        }
+        
+        const firstEntry = action.entries[0];
+        if (typeof firstEntry !== 'string') {
+            return;
+        }
+        
+        // Look for attack patterns in the formatted text
+        if (firstEntry.includes('{@atk') || 
+            firstEntry.includes('{@hit') || 
+            firstEntry.includes('{@damage')) {
+            
+            // Create attack object
+            const attack = {
+                name: action.name,
+                description: parseDnd5eToolsText(firstEntry),
+                raw: firstEntry
+            };
+            
+            // Determine attack type
+            attack.attackType = firstEntry.includes('{@atk mw}') ? 'melee' : 
+                               firstEntry.includes('{@atk rw}') ? 'ranged' : 
+                               'other';
+            
+            // Extract hit bonus
+            const hitMatch = firstEntry.match(/{@hit (\d+)}/);
+            if (hitMatch) {
+                attack.hitBonus = parseInt(hitMatch[1]);
+            }
+            
+            // Extract damage
+            const damageMatches = firstEntry.match(/{@damage ([^}]+)}/g);
+            if (damageMatches) {
+                attack.damage = damageMatches.map(match => {
+                    return match.replace(/{@damage ([^}]+)}/g, '$1');
+                }).join(', ');
+            }
+            
+            attacks.push(attack);
+        }
+    });
+    
+    return attacks;
+}
+
+/**
+ * Extract special abilities/traits from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Array} Array of trait objects
+ */
+function extract5eToolsTraits(monster) {
+    const traits = [];
+    
+    if (!monster.trait || !Array.isArray(monster.trait)) {
+        return traits;
+    }
+    
+    monster.trait.forEach(trait => {
+        if (!trait.name || !trait.entries || !Array.isArray(trait.entries)) {
+            return;
+        }
+        
+        // Process all entries into a single description
+        const description = trait.entries.map(entry => {
+            if (typeof entry === 'string') {
+                return parseDnd5eToolsText(entry);
+            } else if (typeof entry === 'object' && entry.items && Array.isArray(entry.items)) {
+                // Handle list items
+                return entry.items.map(item => `• ${parseDnd5eToolsText(item)}`).join('\n');
+            }
+            return '';
+        }).join(' ');
+        
+        traits.push({
+            name: trait.name,
+            description: description
+        });
+    });
+    
+    return traits;
+}
+
+/**
+ * Extract alignment information from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {string} Formatted alignment string
+ */
+function extractAlignment(monster) {
+    if (!monster.alignment) return 'Unaligned';
+    
+    if (typeof monster.alignment === 'string') {
+        return monster.alignment;
+    }
+    
+    if (Array.isArray(monster.alignment)) {
+        const alignmentMap = {
+            'L': 'Lawful',
+            'N': 'Neutral',
+            'C': 'Chaotic',
+            'G': 'Good',
+            'E': 'Evil',
+            'U': 'Unaligned',
+            'A': 'Any alignment'
+        };
+        
+        // Handle special case: Unaligned
+        if (monster.alignment.includes('U')) {
+            return 'Unaligned';
+        }
+        
+        // Handle special case: Any alignment
+        if (monster.alignment.includes('A')) {
+            return 'Any alignment';
+        }
+        
+        // Handle standard alignment combinations
+        let alignment = '';
+        
+        // First part (Lawful/Neutral/Chaotic)
+        if (monster.alignment.includes('L')) alignment += 'Lawful ';
+        else if (monster.alignment.includes('C')) alignment += 'Chaotic ';
+        else if (monster.alignment.includes('N') && !monster.alignment.includes('G') && !monster.alignment.includes('E')) {
+            alignment += 'Neutral';
+        }
+        
+        // Second part (Good/Evil/Neutral)
+        if (monster.alignment.includes('G')) alignment += 'Good';
+        else if (monster.alignment.includes('E')) alignment += 'Evil';
+        else if (monster.alignment.includes('N') && !alignment.includes('Neutral')) {
+            alignment += 'Neutral';
+        }
+        
+        return alignment.trim();
+    }
+    
+    return 'Unaligned';
+}
+
+/**
+ * Extract senses information from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Array} Array of sense strings
+ */
+function extractSenses(monster) {
+    if (!monster.senses) return [];
+    
+    if (typeof monster.senses === 'string') {
+        return [monster.senses];
+    }
+    
+    if (Array.isArray(monster.senses)) {
+        return monster.senses.map(sense => {
+            // Parse sense tags
+            return parseDnd5eToolsText(sense);
+        });
+    }
+    
+    return [];
+}
+
+/**
+ * Extract damage types from 5e Tools monster
+ * @param {Object} monster - 5e Tools monster object
+ * @returns {Array} Array of damage types
+ */
+function extractDamageTypes(monster) {
+    const damageTypes = [];
+    
+    // From damageTags property
+    if (monster.damageTags && Array.isArray(monster.damageTags)) {
+        monster.damageTags.forEach(tag => {
+            const damageType = mapDamageTag(tag);
+            if (damageType && !damageTypes.includes(damageType)) {
+                damageTypes.push(damageType);
+            }
+        });
+    }
+    
+    // From resistances
+    if (monster.resist) {
+        const resistances = Array.isArray(monster.resist) ? monster.resist : [monster.resist];
+        resistances.forEach(resistance => {
+            if (typeof resistance === 'string') {
+                const types = extractDamageTypesFromText(resistance);
+                types.forEach(type => {
+                    if (!damageTypes.includes(type)) {
+                        damageTypes.push(type);
+                    }
+                });
+            }
+        });
+    }
+    
+    // From immunities
+    if (monster.immune) {
+        const immunities = Array.isArray(monster.immune) ? monster.immune : [monster.immune];
+        immunities.forEach(immunity => {
+            if (typeof immunity === 'string') {
+                const types = extractDamageTypesFromText(immunity);
+                types.forEach(type => {
+                    if (!damageTypes.includes(type)) {
+                        damageTypes.push(type);
+                    }
+                });
+            }
+        });
+    }
+    
+    // From vulnerabilities
+    if (monster.vulnerable) {
+        const vulnerabilities = Array.isArray(monster.vulnerable) ? monster.vulnerable : [monster.vulnerable];
+        vulnerabilities.forEach(vulnerability => {
+            if (typeof vulnerability === 'string') {
+                const types = extractDamageTypesFromText(vulnerability);
+                types.forEach(type => {
+                    if (!damageTypes.includes(type)) {
+                        damageTypes.push(type);
+                    }
+                });
+            }
+        });
+    }
+    
+    return damageTypes;
+}
+
+/**
+ * Extract damage types from text description
+ * @param {string} text - Text containing damage types
+ * @returns {Array} Array of damage types
+ */
+function extractDamageTypesFromText(text) {
+    const damageTypeRegex = /acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder/gi;
+    const matches = text.match(damageTypeRegex);
+    return matches ? matches.map(type => type.toLowerCase()) : [];
+}
+
+/**
+ * Map damage tag to damage type
+ * @param {string} tag - The damage tag
+ * @returns {string|null} The corresponding damage type or null
+ */
+function mapDamageTag(tag) {
+    const tagMap = {
+        'A': 'acid',
+        'B': 'bludgeoning',
+        'C': 'cold',
+        'F': 'fire',
+        'O': 'force',
+        'L': 'lightning',
+        'N': 'necrotic',
+        'P': 'piercing',
+        'I': 'poison',
+        'Y': 'psychic',
+        'R': 'radiant',
+        'S': 'slashing',
+        'T': 'thunder'
+    };
+    
+    return tagMap[tag] || null;
+}
+
+/**
+ * Parse 5e Tools formatted text
+ * @param {string} text - Text with 5e Tools formatting tags
+ * @returns {string} Parsed text with tags converted to readable format
+ */
+function parseDnd5eToolsText(text) {
+    if (!text || typeof text !== 'string') return '';
+    
+    // Replace common 5e Tools tags
+    return text
+        // Attack tags
+        .replace(/{@atk mw}/g, 'Melee Weapon Attack:')
+        .replace(/{@atk rw}/g, 'Ranged Weapon Attack:')
+        .replace(/{@atk ms}/g, 'Melee Spell Attack:')
+        .replace(/{@atk rs}/g, 'Ranged Spell Attack:')
+        
+        // Hit and damage tags
+        .replace(/{@hit (\d+)}/g, '+$1')
+        .replace(/{@h}/g, 'Hit: ')
+        .replace(/{@damage ([^}]+)}/g, '$1')
+        
+        // Dice tags
+        .replace(/{@dice ([^}]+)}/g, '$1')
+        
+        // Condition tags
+        .replace(/{@condition ([^}]+)}/g, '$1')
+        
+        // Spell tags
+        .replace(/{@spell ([^}]+)}/g, '$1')
+        
+        // DC tags
+        .replace(/{@dc (\d+)}/g, 'DC $1')
+        
+        // Recharge tags
+        .replace(/{@recharge}/g, 'Recharge')
+        .replace(/{@recharge (\d+)(?:-(\d+))?}/g, (match, min, max) => {
+            return max ? `Recharge ${min}-${max}` : `Recharge ${min}`;
+        })
+        
+        // Other format cleanup
+        .replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Validate monster data for required fields and data types
  * @param {Object} monster - The monster data to validate
  * @returns {boolean} True if valid, false otherwise
@@ -783,11 +1480,20 @@ function validateMonsterData(monster) {
         return false;
     }
     
-    // Validate size is one of the valid D&D sizes
-    const validSizes = ['T', 'S', 'M', 'L', 'H', 'G'];
-    if (monster.size && !validSizes.includes(monster.size)) {
-        console.warn(`Invalid monster ${monster.name}: invalid size ${monster.size}`);
-        return false;
+    // Validate size - either string or array
+    if (monster.size) {
+        if (typeof monster.size === 'string') {
+            const validSizes = ['T', 'S', 'M', 'L', 'H', 'G'];
+            if (!validSizes.includes(monster.size)) {
+                console.warn(`Invalid monster ${monster.name}: invalid size ${monster.size}`);
+                return false;
+            }
+        } else if (Array.isArray(monster.size)) {
+            // 5e Tools format - size as array is valid
+        } else {
+            console.warn(`Invalid monster ${monster.name}: invalid size type ${typeof monster.size}`);
+            return false;
+        }
     }
     
     // Basic validation for CR
@@ -802,8 +1508,8 @@ function validateMonsterData(monster) {
                 return false;
             }
         }
-        // If CR is an object, it should have a 'cr' property
-        else if (typeof monster.cr === 'object' && !monster.cr.cr) {
+        // If CR is an object, it should have a 'cr' property (5e Tools format)
+        else if (typeof monster.cr === 'object' && monster.cr !== null && !monster.cr.cr) {
             console.warn(`Invalid monster ${monster.name}: CR object missing 'cr' property`);
             return false;
         }
@@ -811,19 +1517,6 @@ function validateMonsterData(monster) {
         else if (typeof monster.cr !== 'number' && typeof monster.cr !== 'object') {
             console.warn(`Invalid monster ${monster.name}: invalid CR type ${typeof monster.cr}`);
             return false;
-        }
-    }
-    
-    // Basic ability score validation
-    const abilities = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
-    for (const ability of abilities) {
-        if (monster[ability] !== undefined) {
-            const score = parseInt(monster[ability]);
-            // D&D ability scores are typically between 1 and 30
-            if (isNaN(score) || score < 1 || score > 30) {
-                console.warn(`Invalid monster ${monster.name}: invalid ${ability} score ${monster[ability]}`);
-                // Don't reject for ability score issues, just warn
-            }
         }
     }
     

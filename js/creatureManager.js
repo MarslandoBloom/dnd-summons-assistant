@@ -10,7 +10,8 @@ import * as dataManager from './dataManager.js';
 const filterCache = {
     types: [],
     crs: [],
-    sizes: []
+    sizes: [],
+    environments: [] // Added environment array for filtering
 };
 
 // Filter state
@@ -20,6 +21,7 @@ const filterState = {
     maxCR: 30,
     minSize: 'T',
     maxSize: 'G',
+    environment: [], // Added environment filter
     favorites: false
 };
 
@@ -62,14 +64,18 @@ async function loadFilterOptions() {
         // Set up CR filter options
         filterCache.crs = Object.keys(stats.crStats)
             .map(cr => parseFloat(cr))
-            .sort((a, b) => a - b);
+            .sort((a, b) => a - b); // Keep ascending order for internal data
         
         // Set up size filter options
         filterCache.sizes = Object.keys(stats.sizeStats)
             .sort((a, b) => getSizeOrder(a) - getSizeOrder(b));
         
+        // Set up environment filter options (extract from creatures)
+        filterCache.environments = await loadEnvironmentOptions();
+        
         // Initialize filter state with all types selected
         filterState.type = [...filterCache.types];
+        filterState.environment = [...filterCache.environments];
         
         // Set min/max CR based on available options
         if (filterCache.crs.length > 0) {
@@ -82,6 +88,33 @@ async function loadFilterOptions() {
     } catch (error) {
         console.error('Error loading filter options:', error);
         return false;
+    }
+}
+
+/**
+ * Load available environment options from creatures
+ * @returns {Promise<Array>} Resolves with array of unique environments
+ */
+async function loadEnvironmentOptions() {
+    try {
+        const creatures = await dataManager.getAllCreatures();
+        const environments = new Set();
+        
+        creatures.forEach(creature => {
+            // Check for environments in different possible locations
+            if (creature.environment && Array.isArray(creature.environment)) {
+                creature.environment.forEach(env => environments.add(env));
+            } else if (creature.environments && Array.isArray(creature.environments)) {
+                creature.environments.forEach(env => environments.add(env));
+            } else if (creature.environment && typeof creature.environment === 'string') {
+                environments.add(creature.environment);
+            }
+        });
+        
+        return Array.from(environments).sort();
+    } catch (error) {
+        console.error('Error loading environment options:', error);
+        return [];
     }
 }
 
@@ -135,6 +168,33 @@ export function renderCreatureManager(container) {
                     </div>
                     
                     <div class="filter-group">
+                        <button id="environment-filter-btn" class="filter-button">
+                            Environment <span class="env-filter-indicator"></span>
+                        </button>
+                        <div id="environment-filter-dropdown" class="filter-dropdown hidden">
+                            <div class="dropdown-header">
+                                <h4>Select Environments</h4>
+                                <div class="dropdown-actions">
+                                    <button id="select-all-environments" class="action-btn">Select All</button>
+                                    <button id="clear-all-environments" class="action-btn">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="environment-options-container">
+                                ${filterCache.environments.map(env => `
+                                    <div class="environment-option">
+                                        <input type="checkbox" id="env-${env.replace(/\s+/g, '-').toLowerCase()}" class="environment-checkbox" value="${env}" checked>
+                                        <label for="env-${env.replace(/\s+/g, '-').toLowerCase()}">${env}</label>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="dropdown-footer">
+                                <button id="apply-environment-filter" class="primary-btn">Apply</button>
+                                <button id="cancel-environment-filter" class="secondary-btn">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
                         <label for="min-cr-filter">CR:</label>
                         <select id="min-cr-filter" class="filter-select">
                             <option value="all">Min CR</option>
@@ -143,7 +203,7 @@ export function renderCreatureManager(container) {
                         <span>to</span>
                         <select id="max-cr-filter" class="filter-select">
                             <option value="all">Max CR</option>
-                            ${[...filterCache.crs].reverse().map(cr => `<option value="${cr}">${formatCR(cr)}</option>`).join('')}
+                            ${[...filterCache.crs].map(cr => `<option value="${cr}">${formatCR(cr)}</option>`).join('')}
                         </select>
                     </div>
                     
@@ -167,33 +227,32 @@ export function renderCreatureManager(container) {
                 </div>
             </div>
             
-            <div class="results-favorites-container">
-                <div class="results-container">
-                    <div class="results-info">
+            <div class="creature-manager-content">
+                <div class="creature-list-container">
+                    <div class="list-header">
                         <span id="results-count">0 creatures found</span>
                         <button id="clear-filters-btn" class="secondary-btn">Clear Filters</button>
                     </div>
                     
-                    <div id="creature-results" class="creature-results"></div>
-                </div>
-                
-                <div class="favorites-container">
-                    <div class="favorites-header">
-                        <h3>Favorites</h3>
-                        <button id="clear-favorites-btn" class="secondary-btn">Clear All</button>
+                    <div id="creature-list" class="creature-list">
+                        <!-- Creature list will be rendered here -->
                     </div>
-                    <div id="favorites-list" class="favorites-list">
-                        <div class="no-favorites">
-                            <p>No favorites added yet.</p>
-                            <p>Click the star ☆ on a creature card or "Add to Favorites" in the statblock to add favorites.</p>
+                    
+                    <div id="favorites-section" class="favorites-section">
+                        <div class="favorites-header">
+                            <h3>Favorites</h3>
+                            <button id="clear-favorites-btn" class="secondary-btn">Clear All</button>
+                        </div>
+                        <div id="favorites-list" class="favorites-list">
+                            <!-- Favorites will be rendered here -->
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div id="creature-detail" class="creature-detail">
-                <div class="creature-detail-placeholder">
-                    <p>Select a creature to view details</p>
+                
+                <div id="creature-detail" class="creature-detail">
+                    <div class="creature-detail-placeholder">
+                        <p>Select a creature to view details</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -211,8 +270,9 @@ export function renderCreatureManager(container) {
     // Render favorites
     renderFavorites();
     
-    // Update type filter indicator
+    // Update filter indicators
     updateTypeFilterIndicator();
+    updateEnvironmentFilterIndicator();
 }
 
 /**
@@ -223,6 +283,23 @@ function updateTypeFilterIndicator() {
     if (indicator) {
         const selectedCount = filterState.type.length;
         const totalCount = filterCache.types.length;
+        
+        if (selectedCount === totalCount) {
+            indicator.textContent = '';
+        } else {
+            indicator.textContent = `(${selectedCount})`;
+        }
+    }
+}
+
+/**
+ * Update the environment filter indicator with count of selected environments
+ */
+function updateEnvironmentFilterIndicator() {
+    const indicator = document.querySelector('.env-filter-indicator');
+    if (indicator) {
+        const selectedCount = filterState.environment.length;
+        const totalCount = filterCache.environments.length;
         
         if (selectedCount === totalCount) {
             indicator.textContent = '';
@@ -319,6 +396,71 @@ function setupEventListeners() {
         }
     }
     
+    // Environment filter dropdown
+    const environmentFilterBtn = document.getElementById('environment-filter-btn');
+    const environmentFilterDropdown = document.getElementById('environment-filter-dropdown');
+    if (environmentFilterBtn && environmentFilterDropdown) {
+        environmentFilterBtn.addEventListener('click', () => {
+            environmentFilterDropdown.classList.toggle('hidden');
+            
+            // Update checkboxes to match current filter state
+            filterState.environment.forEach(env => {
+                const checkbox = document.getElementById(`env-${env.replace(/\s+/g, '-').toLowerCase()}`);
+                if (checkbox) checkbox.checked = true;
+            });
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!environmentFilterBtn.contains(event.target) && 
+                !environmentFilterDropdown.contains(event.target)) {
+                environmentFilterDropdown.classList.add('hidden');
+            }
+        });
+        
+        // Select all environments
+        const selectAllBtn = document.getElementById('select-all-environments');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                const checkboxes = document.querySelectorAll('.environment-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+            });
+        }
+        
+        // Clear all environments
+        const clearAllBtn = document.getElementById('clear-all-environments');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', () => {
+                const checkboxes = document.querySelectorAll('.environment-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            });
+        }
+        
+        // Apply environment filter
+        const applyBtn = document.getElementById('apply-environment-filter');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                const checkboxes = document.querySelectorAll('.environment-checkbox:checked');
+                filterState.environment = Array.from(checkboxes).map(cb => cb.value);
+                updateEnvironmentFilterIndicator();
+                environmentFilterDropdown.classList.add('hidden');
+                searchCreatures();
+            });
+        }
+        
+        // Cancel environment filter
+        const cancelBtn = document.getElementById('cancel-environment-filter');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                environmentFilterDropdown.classList.add('hidden');
+            });
+        }
+    }
+    
     // CR filter change events
     const minCRFilter = document.getElementById('min-cr-filter');
     const maxCRFilter = document.getElementById('max-cr-filter');
@@ -392,6 +534,7 @@ function setupEventListeners() {
 function resetFilters() {
     // Reset filter state
     filterState.type = [...filterCache.types];
+    filterState.environment = [...filterCache.environments];
     filterState.minCR = filterCache.crs.length > 0 ? Math.min(...filterCache.crs) : 0;
     filterState.maxCR = filterCache.crs.length > 0 ? Math.max(...filterCache.crs) : 30;
     filterState.minSize = 'T';
@@ -419,8 +562,15 @@ function resetFilters() {
         checkbox.checked = true;
     });
     
-    // Update type filter indicator
+    // Reset environment checkboxes
+    const environmentCheckboxes = document.querySelectorAll('.environment-checkbox');
+    environmentCheckboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    // Update filter indicators
     updateTypeFilterIndicator();
+    updateEnvironmentFilterIndicator();
     
     // Refresh results
     searchCreatures();
@@ -451,6 +601,24 @@ async function searchCreatures() {
             creatures = creatures.filter(creature => 
                 filterState.type.includes(creature.type)
             );
+        }
+        
+        // Apply environment filter
+        if (filterState.environment.length > 0 && filterState.environment.length < filterCache.environments.length) {
+            creatures = creatures.filter(creature => {
+                // Check for environment match in any of the possible formats
+                if (creature.environment && Array.isArray(creature.environment)) {
+                    return creature.environment.some(env => filterState.environment.includes(env));
+                } 
+                if (creature.environments && Array.isArray(creature.environments)) {
+                    return creature.environments.some(env => filterState.environment.includes(env));
+                }
+                if (creature.environment && typeof creature.environment === 'string') {
+                    return filterState.environment.includes(creature.environment);
+                }
+                // If no environment data, still show if "any" is selected
+                return filterState.environment.includes('Any');
+            });
         }
         
         // Apply CR range filter
@@ -490,7 +658,7 @@ async function searchCreatures() {
         console.error('Error searching creatures:', error);
         
         // Show error in results
-        const resultsContainer = document.getElementById('creature-results');
+        const resultsContainer = document.getElementById('creature-list');
         if (resultsContainer) {
             resultsContainer.innerHTML = `
                 <div class="search-error">
@@ -506,11 +674,11 @@ async function searchCreatures() {
  * @param {Array} creatures - The creatures to render
  */
 function renderCreatureResults(creatures) {
-    const resultsContainer = document.getElementById('creature-results');
-    if (!resultsContainer) return;
+    const listContainer = document.getElementById('creature-list');
+    if (!listContainer) return;
     
     if (creatures.length === 0) {
-        resultsContainer.innerHTML = `
+        listContainer.innerHTML = `
             <div class="no-results">
                 <p>No creatures found. Try adjusting your filters.</p>
             </div>
@@ -518,76 +686,49 @@ function renderCreatureResults(creatures) {
         return;
     }
     
-    const resultsHTML = creatures.slice(0, 50).map(creature => {
-        const favoriteEntry = favorites.find(fav => fav.creatureId === creature.id);
-        const isFav = Boolean(favoriteEntry);
-        const favCount = favoriteEntry ? favoriteEntry.count : 0;
-        
-        return `
-            <div class="creature-card" data-id="${creature.id}">
-                <div class="creature-card-header">
-                    <h3 class="creature-name">${creature.name}</h3>
-                    <button class="favorite-btn ${isFav ? 'favorite' : ''}" data-id="${creature.id}">
-                        <span class="favorite-icon">${isFav ? '★' : '☆'}</span>
-                        ${isFav ? `<span class="favorite-count">${favCount}</span>` : ''}
-                    </button>
-                </div>
-                <div class="creature-card-body">
-                    <div class="creature-meta">
-                        <span class="creature-size">${getSizeName(creature.size)}</span>
-                        <span class="creature-type">${capitalizeFirstLetter(creature.type)}</span>
-                    </div>
-                    <div class="creature-stats">
-                        <span class="creature-cr">CR ${formatCR(creature.cr)}</span>
-                        <span class="creature-hp">HP ${creature.hp.average}</span>
-                        <span class="creature-ac">AC ${creature.ac}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    // Create a table layout for better space utilization
+    const tableHTML = `
+        <table class="creature-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>CR</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${creatures.map(creature => {
+                    const favoriteEntry = favorites.find(fav => fav.creatureId === creature.id);
+                    const isFav = Boolean(favoriteEntry);
+                    
+                    return `
+                        <tr class="creature-row" data-id="${creature.id}">
+                            <td class="creature-name">
+                                ${creature.name} ${isFav ? `<span class="favorite-indicator" title="In favorites">★</span>` : ''}
+                            </td>
+                            <td>${capitalizeFirstLetter(creature.type)}</td>
+                            <td>${getSizeName(creature.size)}</td>
+                            <td>CR ${formatCR(creature.cr)}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
     
-    // Show a message if we're limiting results
-    const limitMessage = creatures.length > 50 
-        ? `<div class="results-limit-message">Showing 50 of ${creatures.length} results. Use filters to narrow down further.</div>` 
-        : '';
+    listContainer.innerHTML = tableHTML;
     
-    resultsContainer.innerHTML = resultsHTML + limitMessage;
-    
-    // Add click listeners to creature cards
-    const creatureCards = document.querySelectorAll('.creature-card');
-    creatureCards.forEach(card => {
-        card.addEventListener('click', (event) => {
-            // Don't trigger if the click was on the favorite button
-            if (event.target.closest('.favorite-btn')) return;
-            
-            const creatureId = card.getAttribute('data-id');
+    // Add click listeners to creature rows
+    const creatureRows = document.querySelectorAll('.creature-row');
+    creatureRows.forEach(row => {
+        row.addEventListener('click', () => {
+            const creatureId = row.getAttribute('data-id');
             displayCreatureDetails(creatureId);
             
-            // Add selected class to the clicked card and remove from others
-            creatureCards.forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-        });
-    });
-    
-    // Add click listeners to favorite buttons
-    const favoriteButtons = document.querySelectorAll('.favorite-btn');
-    favoriteButtons.forEach(button => {
-        button.addEventListener('click', (event) => {
-            event.stopPropagation(); // Prevent triggering the card click
-            
-            const creatureId = button.getAttribute('data-id');
-            
-            // Check if it's already a favorite
-            const existingFavorite = favorites.find(fav => fav.creatureId === creatureId);
-            
-            if (existingFavorite) {
-                // If already a favorite, show dialog to change count or remove
-                showFavoriteQuantityDialog(creatureId, existingFavorite.count);
-            } else {
-                // If not a favorite, show dialog to add
-                showFavoriteQuantityDialog(creatureId);
-            }
+            // Add selected class to the clicked row and remove from others
+            creatureRows.forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
         });
     });
 }
@@ -603,7 +744,7 @@ function renderFavorites() {
         favoritesList.innerHTML = `
             <div class="no-favorites">
                 <p>No favorites added yet.</p>
-                <p>Click the star ☆ on a creature card or "Add to Favorites" in the statblock to add favorites.</p>
+                <p>Click "Add to Favorites" in the statblock to add creatures to your favorites.</p>
             </div>
         `;
         return;
@@ -611,24 +752,36 @@ function renderFavorites() {
     
     // Get all creatures to match IDs with names
     dataManager.getAllCreatures().then(creatures => {
-        const favoritesHTML = favorites.map(favorite => {
-            const creature = creatures.find(c => c.id === favorite.creatureId);
-            if (!creature) return ''; // Skip if creature not found
+        // Sort favorites by name
+        favorites.sort((a, b) => {
+            const creatureA = creatures.find(c => c.id === a.creatureId);
+            const creatureB = creatures.find(c => c.id === b.creatureId);
             
-            return `
-                <div class="favorite-item">
-                    <div class="favorite-item-info">
-                        <span class="favorite-item-name">${creature.name}</span>
-                        <span class="favorite-item-count">(${favorite.count})</span>
-                    </div>
-                    <div class="favorite-item-actions">
-                        <button class="favorite-view-btn primary-btn" data-id="${favorite.creatureId}">View</button>
-                        <button class="favorite-add-btn secondary-btn" data-id="${favorite.creatureId}" data-count="${favorite.count}">Add to Combat</button>
-                        <button class="favorite-remove-btn secondary-btn" data-id="${favorite.creatureId}">Remove</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+            if (!creatureA || !creatureB) return 0;
+            return creatureA.name.localeCompare(creatureB.name);
+        });
+        
+        const favoritesHTML = `
+            <ul class="favorites-list">
+                ${favorites.map(favorite => {
+                    const creature = creatures.find(c => c.id === favorite.creatureId);
+                    if (!creature) return '';
+                    
+                    return `
+                        <li class="favorite-item">
+                            <div class="favorite-item-info">
+                                <span class="favorite-item-name">${creature.name}</span>
+                                <span class="favorite-item-count">(${favorite.count})</span>
+                            </div>
+                            <div class="favorite-item-actions">
+                                <button class="favorite-view-btn" data-id="${favorite.creatureId}">View</button>
+                                <button class="favorite-remove-btn" data-id="${favorite.creatureId}">Remove</button>
+                            </div>
+                        </li>
+                    `;
+                }).join('')}
+            </ul>
+        `;
         
         favoritesList.innerHTML = favoritesHTML;
         
@@ -639,26 +792,14 @@ function renderFavorites() {
                 const creatureId = button.getAttribute('data-id');
                 displayCreatureDetails(creatureId);
                 
-                // Find and select the corresponding card if visible
-                const card = document.querySelector(`.creature-card[data-id="${creatureId}"]`);
-                if (card) {
-                    const cards = document.querySelectorAll('.creature-card');
-                    cards.forEach(c => c.classList.remove('selected'));
-                    card.classList.add('selected');
-                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Find and select the corresponding row if visible
+                const row = document.querySelector(`.creature-row[data-id="${creatureId}"]`);
+                if (row) {
+                    const rows = document.querySelectorAll('.creature-row');
+                    rows.forEach(r => r.classList.remove('selected'));
+                    row.classList.add('selected');
+                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
-            });
-        });
-        
-        const addButtons = document.querySelectorAll('.favorite-add-btn');
-        addButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const creatureId = button.getAttribute('data-id');
-                const count = button.getAttribute('data-count');
-                
-                // This will be implemented in the combat module
-                console.log('Add to combat clicked for favorite:', creatureId, 'count:', count);
-                showNotification(`Added ${count} ${creatures.find(c => c.id === creatureId)?.name || 'creatures'} to combat.`, 'info');
             });
         });
         
@@ -695,13 +836,17 @@ async function displayCreatureDetails(creatureId) {
         const detailContainer = document.getElementById('creature-detail');
         if (!detailContainer) return;
         
-        // Create the statblock HTML
+        // Determine if this is a 5e Tools format creature
+        const is5eToolsFormat = creature.sourceFormat === '5eTools';
+        
+        // Create the statblock HTML with enhanced fields for 5e Tools format
         const statblockHTML = `
             <div class="statblock">
                 <div class="statblock-header">
                     <h2 class="creature-name">${creature.name}</h2>
                     <div class="creature-subtitle">
                         ${getSizeName(creature.size)} ${capitalizeFirstLetter(creature.type)}, CR ${formatCR(creature.cr)}
+                        ${is5eToolsFormat && creature.alignment ? `<br>${creature.alignment}` : ''}
                     </div>
                 </div>
                 
@@ -753,6 +898,8 @@ async function displayCreatureDetails(creatureId) {
                     </div>
                 </div>
                 
+                ${is5eToolsFormat ? renderAdditionalProperties(creature) : ''}
+                
                 ${creature.specialAbilities && creature.specialAbilities.length > 0 ? `
                 <div class="statblock-section">
                     <h3 class="section-title">Special Abilities</h3>
@@ -774,6 +921,15 @@ async function displayCreatureDetails(creatureId) {
                             <span class="action-description">${formatAttackDescription(attack)}</span>
                         </div>
                     `).join('')}
+                </div>
+                ` : ''}
+                
+                ${is5eToolsFormat && creature.environment ? `
+                <div class="statblock-section">
+                    <h3 class="section-title">Environment</h3>
+                    <div class="statblock-environment">
+                        ${Array.isArray(creature.environment) ? creature.environment.join(', ') : creature.environment}
+                    </div>
                 </div>
                 ` : ''}
                 
@@ -826,6 +982,83 @@ async function displayCreatureDetails(creatureId) {
             `;
         }
     }
+}
+
+/**
+ * Render additional properties for 5e Tools formatted creatures
+ * @param {Object} creature - The creature object
+ * @returns {string} HTML for additional properties
+ */
+function renderAdditionalProperties(creature) {
+    let html = '';
+    
+    // Skills
+    if (creature.skills && Object.keys(creature.skills).length > 0) {
+        html += `
+            <div class="statblock-section">
+                <div class="statblock-property">
+                    <span class="property-name">Skills</span>
+                    <span class="property-value">
+                        ${Object.entries(creature.skills).map(([skill, bonus]) => 
+                            `${capitalizeFirstLetter(skill)} ${bonus}`
+                        ).join(', ')}
+                    </span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Senses
+    if (creature.senses && creature.senses.length > 0) {
+        html += `
+            <div class="statblock-section">
+                <div class="statblock-property">
+                    <span class="property-name">Senses</span>
+                    <span class="property-value">${Array.isArray(creature.senses) ? creature.senses.join(', ') : creature.senses}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Languages
+    if (creature.languages && creature.languages.length > 0) {
+        html += `
+            <div class="statblock-section">
+                <div class="statblock-property">
+                    <span class="property-name">Languages</span>
+                    <span class="property-value">${Array.isArray(creature.languages) ? creature.languages.join(', ') : creature.languages}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Damage types
+    if (creature.damageTypes && creature.damageTypes.length > 0) {
+        html += `
+            <div class="statblock-section">
+                <div class="statblock-property">
+                    <span class="property-name">Damage Types</span>
+                    <span class="property-value">${creature.damageTypes.map(type => capitalizeFirstLetter(type)).join(', ')}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Condition Immunities
+    if (creature.conditionImmunities && creature.conditionImmunities.length > 0) {
+        html += `
+            <div class="statblock-section">
+                <div class="statblock-property">
+                    <span class="property-name">Condition Immunities</span>
+                    <span class="property-value">${Array.isArray(creature.conditionImmunities) ? 
+                        creature.conditionImmunities.map(condition => capitalizeFirstLetter(condition)).join(', ') : 
+                        capitalizeFirstLetter(creature.conditionImmunities)}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
 }
 
 /**
@@ -1034,7 +1267,12 @@ function showCombatQuantityDialog(creatureId, defaultCount = 1) {
  */
 function formatAttackDescription(attack) {
     if (attack.description) {
-        // Remove the {@atk} and {@hit} tags for cleaner presentation
+        // For 5e Tools format, the description is already processed
+        if (attack.raw && attack.raw.includes('{@')) {
+            return attack.description;
+        }
+        
+        // For standard format, process tags
         let description = attack.description
             .replace(/{@atk mw}/g, 'Melee Weapon Attack:')
             .replace(/{@atk rw}/g, 'Ranged Weapon Attack:')
@@ -1083,8 +1321,8 @@ function addOrUpdateFavorite(creatureId, creatureName, count) {
     if (filterState.favorites) {
         searchCreatures();
     } else {
-        // Otherwise just update cards with star icons
-        updateFavoriteIcons();
+        // Otherwise just update favorite indicators
+        updateFavoriteIndicators();
     }
 }
 
@@ -1115,43 +1353,37 @@ function removeFavorite(creatureId) {
         if (filterState.favorites) {
             searchCreatures();
         } else {
-            // Otherwise just update cards with star icons
-            updateFavoriteIcons();
+            // Otherwise just update favorite indicators
+            updateFavoriteIndicators();
         }
     }
 }
 
 /**
- * Update favorite icons on creature cards
+ * Update favorite indicators in the creature list
  */
-function updateFavoriteIcons() {
-    const favoriteButtons = document.querySelectorAll('.favorite-btn');
-    favoriteButtons.forEach(button => {
-        const creatureId = button.getAttribute('data-id');
-        const favoriteEntry = favorites.find(fav => fav.creatureId === creatureId);
-        const isFav = Boolean(favoriteEntry);
+function updateFavoriteIndicators() {
+    const creatureRows = document.querySelectorAll('.creature-row');
+    
+    creatureRows.forEach(row => {
+        const creatureId = row.getAttribute('data-id');
+        const isFav = favorites.some(fav => fav.creatureId === creatureId);
         
-        // Update the button appearance
-        button.classList.toggle('favorite', isFav);
-        
-        const iconElement = button.querySelector('.favorite-icon');
-        if (iconElement) {
-            iconElement.textContent = isFav ? '★' : '☆';
-        }
-        
-        // Update count if it exists
-        if (isFav) {
-            let countElement = button.querySelector('.favorite-count');
-            if (!countElement) {
-                countElement = document.createElement('span');
-                countElement.className = 'favorite-count';
-                button.appendChild(countElement);
+        const nameCell = row.querySelector('.creature-name');
+        if (nameCell) {
+            // Remove any existing indicator
+            const existingIndicator = nameCell.querySelector('.favorite-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
             }
-            countElement.textContent = favoriteEntry.count;
-        } else {
-            const countElement = button.querySelector('.favorite-count');
-            if (countElement) {
-                countElement.remove();
+            
+            // Add indicator if favorite
+            if (isFav) {
+                const indicator = document.createElement('span');
+                indicator.className = 'favorite-indicator';
+                indicator.title = 'In favorites';
+                indicator.textContent = '★';
+                nameCell.appendChild(indicator);
             }
         }
     });
