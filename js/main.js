@@ -5,7 +5,6 @@
 import * as dataManager from './dataManager.js';
 
 // DOM Elements
-const loadDataBtn = document.getElementById('load-data-btn');
 const statusMessage = document.getElementById('status-message');
 const loadingIndicator = document.querySelector('.loading-indicator');
 const appContainer = document.getElementById('app-container');
@@ -61,15 +60,42 @@ function checkDataStatus() {
  */
 function updateDataStatus(isLoaded) {
     appState.isDataLoaded = isLoaded;
+    const statusContainer = document.getElementById('data-status');
     
     if (isLoaded) {
         statusMessage.textContent = 'Data status: Loaded';
         statusMessage.style.color = 'lightgreen';
-        loadDataBtn.textContent = 'Refresh Data';
+        
+        // Create refresh button if it doesn't exist
+        if (!document.getElementById('refresh-data-btn')) {
+            const refreshBtn = document.createElement('button');
+            refreshBtn.id = 'refresh-data-btn';
+            refreshBtn.className = 'primary-btn';
+            refreshBtn.textContent = 'Refresh Data';
+            refreshBtn.addEventListener('click', () => {
+                if (confirm('This will clear all existing data. Are you sure?')) {
+                    dataManager.clearData();
+                    updateDataStatus(false);
+                    renderUploadInterface();
+                    
+                    // Remove the refresh button after data is cleared
+                    const btnToRemove = document.getElementById('refresh-data-btn');
+                    if (btnToRemove) {
+                        btnToRemove.remove();
+                    }
+                }
+            });
+            statusContainer.appendChild(refreshBtn);
+        }
     } else {
         statusMessage.textContent = 'Data status: Not loaded';
         statusMessage.style.color = 'white';
-        loadDataBtn.textContent = 'Upload Data';
+        
+        // Remove refresh button if it exists
+        const refreshBtn = document.getElementById('refresh-data-btn');
+        if (refreshBtn) {
+            refreshBtn.remove();
+        }
     }
 }
 
@@ -77,25 +103,8 @@ function updateDataStatus(isLoaded) {
  * Set up event listeners for user interactions
  */
 function setupEventListeners() {
-    // Load data button
-    loadDataBtn.addEventListener('click', handleDataButtonClick);
-}
-
-/**
- * Handle the data button click (either upload or refresh)
- */
-function handleDataButtonClick() {
-    if (appState.isDataLoaded) {
-        // Show confirmation dialog for refreshing data
-        if (confirm('This will clear all existing data. Are you sure?')) {
-            dataManager.clearData();
-            updateDataStatus(false);
-            renderUploadInterface();
-        }
-    } else {
-        // Show upload interface if it's not already shown
-        renderUploadInterface();
-    }
+    // Any global event listeners can be added here
+    // (The load data button is now added dynamically)
 }
 
 /**
@@ -106,7 +115,7 @@ function renderUploadInterface() {
         <div class="upload-container">
             <h2>Upload Bestiary Files</h2>
             <p>Upload JSON files containing D&D 5e monster data.</p>
-            <p>You can find these files in the 5etools GitHub repository under "/data/bestiary" folder.</p>
+            <p>You can find these files in the 5etools GitHub repository under "/data/bestiary" folder or use our sample files.</p>
             
             <div class="file-upload-area">
                 <label for="bestiary-files" class="upload-label">
@@ -129,6 +138,26 @@ function renderUploadInterface() {
                     <li>Download the JSON files in the bestiary folder (bestiary-mm.json, bestiary-phb.json, etc.)</li>
                     <li>Upload those files here</li>
                 </ol>
+                
+                <h4>Sample Data Files</h4>
+                <p>For development and testing purposes, you can use our sample bestiary files in the <strong>data/bestiary/</strong> folder of this project:</p>
+                <ul>
+                    <li><strong>bestiary-birds.json</strong>: Contains birds like Eagle, Hawk, Owl</li>
+                    <li><strong>bestiary-small-creatures.json</strong>: Contains small creatures like Rat, Bat, Spider</li>
+                    <li><strong>bestiary-mammals.json</strong>: Contains mammals like Wolf, Bear, Panther</li>
+                    <li><strong>bestiary-reptiles.json</strong>: Contains reptiles like Snake, Crocodile</li>
+                </ul>
+                <p><em>Note: These sample files were created by Claude specifically for development purposes and contain a subset of creatures. They can be found in the project repository.</em></p>
+                
+                <h4>Data Storage Information</h4>
+                <p>Your uploaded bestiary data is stored in your browser's IndexedDB storage. This data will be lost in the following cases:</p>
+                <ul>
+                    <li>Clearing your browser's cache or site data</li>
+                    <li>Using private/incognito browsing mode</li>
+                    <li>Browser updates that affect storage</li>
+                    <li>Manually clicking the "Refresh Data" button</li>
+                </ul>
+                <p>Once data is successfully uploaded, it will persist between sessions until one of these events occurs.</p>
             </div>
         </div>
     `;
@@ -218,7 +247,7 @@ function renderAppInterface() {
     const searchInput = document.getElementById('creature-search');
     const searchResults = document.getElementById('search-results');
     
-    searchInput.addEventListener('input', () => {
+    searchInput.addEventListener('input', async () => {
         const searchTerm = searchInput.value.trim();
         
         if (searchTerm.length < 2) {
@@ -226,22 +255,27 @@ function renderAppInterface() {
             return;
         }
         
-        const results = dataManager.searchCreatures(searchTerm);
-        
-        if (results.length === 0) {
-            searchResults.innerHTML = '<div class="no-results">No creatures found</div>';
-            return;
+        try {
+            const results = await dataManager.searchCreatures(searchTerm);
+            
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div class="no-results">No creatures found</div>';
+                return;
+            }
+            
+            searchResults.innerHTML = results
+                .slice(0, 10) // Limit to 10 results
+                .map(creature => `
+                    <div class="search-result-item">
+                        <span class="creature-name">${creature.name}</span>
+                        <span class="creature-type">${creature.type}, CR ${creature.cr}</span>
+                    </div>
+                `)
+                .join('');
+        } catch (error) {
+            console.error('Error searching creatures:', error);
+            searchResults.innerHTML = '<div class="no-results">Error searching creatures</div>';
         }
-        
-        searchResults.innerHTML = results
-            .slice(0, 10) // Limit to 10 results
-            .map(creature => `
-                <div class="search-result-item">
-                    <span class="creature-name">${creature.name}</span>
-                    <span class="creature-type">${creature.type}, CR ${creature.cr}</span>
-                </div>
-            `)
-            .join('');
     });
 }
 
