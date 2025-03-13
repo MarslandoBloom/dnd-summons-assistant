@@ -10,6 +10,14 @@ const DB_VERSION = 1;
 const CREATURES_STORE = 'creatures';
 const METADATA_STORE = 'metadata';
 
+// Sample data URLs (relative to project root)
+const SAMPLE_DATA_FILES = [
+    'data/bestiary/bestiary-birds.json',
+    'data/bestiary/bestiary-small-creatures.json',
+    'data/bestiary/bestiary-mammals.json',
+    'data/bestiary/bestiary-reptiles.json'
+];
+
 // In-memory cache for frequently accessed data
 const dataCache = {
     metadata: {
@@ -379,7 +387,7 @@ async function checkLocalStorageFallback() {
 /**
  * Handle uploaded bestiary files
  * @param {FileList} files - The uploaded files
- * @returns {Promise} Resolves when processing is complete
+ * @returns {Promise<Object>} Resolves with results about the processed data
  */
 export async function handleFileUpload(files) {
     if (!files || files.length === 0) {
@@ -393,17 +401,34 @@ export async function handleFileUpload(files) {
         // Clear the database
         await clearDatabase();
         
+        // Track processing statistics
+        const stats = {
+            totalFiles: files.length,
+            processedFiles: 0,
+            validFiles: 0,
+            skippedFiles: 0,
+            totalCreatures: 0,
+            validCreatures: 0,
+            invalidCreatures: 0
+        };
+        
         // Process each file
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
+            stats.processedFiles++;
             
             // Check if file is JSON
             if (!file.name.endsWith('.json')) {
                 console.warn(`Skipping non-JSON file: ${file.name}`);
+                stats.skippedFiles++;
                 continue;
             }
             
-            await processJSONFile(file);
+            const fileStats = await processJSONFile(file);
+            stats.validFiles++;
+            stats.totalCreatures += fileStats.totalMonsters;
+            stats.validCreatures += fileStats.validMonsters;
+            stats.invalidCreatures += fileStats.invalidMonsters;
         }
         
         // After processing all files, save the metadata
@@ -413,8 +438,15 @@ export async function handleFileUpload(files) {
         // Save to IndexedDB
         await storeProcessedData();
         
-        console.log(`Processed ${dataCache.creatures.length} creatures from ${files.length} files`);
-        return true;
+        console.log(`Processed ${dataCache.creatures.length} creatures from ${stats.validFiles} files`);
+        
+        return {
+            success: true,
+            stats: stats,
+            creatures: dataCache.creatures.length,
+            types: Object.keys(dataCache.creaturesByType).length,
+            crs: Object.keys(dataCache.creaturesByCR).length
+        };
     } catch (error) {
         console.error('Error processing uploaded files:', error);
         
@@ -425,6 +457,81 @@ export async function handleFileUpload(files) {
             console.error('Error saving to localStorage fallback:', fallbackError);
         }
         
+        throw error;
+    }
+}
+
+/**
+ * Load sample data from the predefined JSON files
+ * @returns {Promise<Object>} Resolves with results about the processed data
+ */
+export async function loadSampleData() {
+    try {
+        // Reset the data cache before processing
+        resetDataCache();
+        
+        // Clear the database
+        await clearDatabase();
+        
+        // Track processing statistics
+        const stats = {
+            totalFiles: SAMPLE_DATA_FILES.length,
+            processedFiles: 0,
+            validFiles: 0,
+            skippedFiles: 0,
+            totalCreatures: 0,
+            validCreatures: 0,
+            invalidCreatures: 0
+        };
+        
+        // Process each sample file
+        for (const fileUrl of SAMPLE_DATA_FILES) {
+            stats.processedFiles++;
+            
+            try {
+                // Fetch the file
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                
+                const jsonData = await response.json();
+                
+                // Process the data
+                if (jsonData.monster && Array.isArray(jsonData.monster)) {
+                    const fileStats = processMonsterData(jsonData.monster, fileUrl);
+                    stats.validFiles++;
+                    stats.totalCreatures += fileStats.totalMonsters;
+                    stats.validCreatures += fileStats.validMonsters;
+                    stats.invalidCreatures += fileStats.invalidMonsters;
+                } else {
+                    console.warn(`File ${fileUrl} does not contain monster data, skipping`);
+                    stats.skippedFiles++;
+                }
+            } catch (error) {
+                console.error(`Error loading sample file ${fileUrl}:`, error);
+                stats.skippedFiles++;
+            }
+        }
+        
+        // After processing all files, save the metadata
+        dataCache.metadata.lastUpdated = new Date().toISOString();
+        dataCache.metadata.creatureCount = dataCache.creatures.length;
+        
+        // Save to IndexedDB
+        await storeProcessedData();
+        
+        console.log(`Processed ${dataCache.creatures.length} creatures from ${stats.validFiles} sample files`);
+        
+        return {
+            success: true,
+            stats: stats,
+            creatures: dataCache.creatures.length,
+            types: Object.keys(dataCache.creaturesByType).length,
+            crs: Object.keys(dataCache.creaturesByCR).length
+        };
+    } catch (error) {
+        console.error('Error loading sample data:', error);
         throw error;
     }
 }
@@ -554,7 +661,7 @@ async function storeProcessedData() {
 /**
  * Process a single JSON file
  * @param {File} file - The JSON file to process
- * @returns {Promise} Resolves when processing is complete
+ * @returns {Promise<Object>} Resolves with statistics about the processed file
  */
 function processJSONFile(file) {
     return new Promise((resolve, reject) => {
@@ -567,11 +674,15 @@ function processJSONFile(file) {
                 // Check if this is a bestiary file (should have a "monster" array)
                 if (jsonData.monster && Array.isArray(jsonData.monster)) {
                     // Process monster data
-                    processMonsterData(jsonData.monster, file.name);
-                    resolve();
+                    const stats = processMonsterData(jsonData.monster, file.name);
+                    resolve(stats);
                 } else {
                     console.warn(`File ${file.name} does not contain monster data, skipping`);
-                    resolve();
+                    resolve({
+                        totalMonsters: 0,
+                        validMonsters: 0,
+                        invalidMonsters: 0
+                    });
                 }
             } catch (error) {
                 console.error(`Error parsing JSON file ${file.name}:`, error);
@@ -591,51 +702,132 @@ function processJSONFile(file) {
  * Process monster data from a bestiary file
  * @param {Array} monsters - Array of monster objects
  * @param {string} source - Source file name
+ * @returns {Object} Statistics about the processed monsters
  */
 function processMonsterData(monsters, source) {
     console.log(`Processing ${monsters.length} monsters from ${source}`);
     
+    const stats = {
+        totalMonsters: monsters.length,
+        validMonsters: 0,
+        invalidMonsters: 0
+    };
+    
     // Filter and transform monsters
     monsters.forEach(monster => {
-        // Skip if missing essential data
-        if (!monster.name || !monster.type) {
+        // Validate the monster data
+        if (!validateMonsterData(monster)) {
+            stats.invalidMonsters++;
             return;
         }
         
-        // Create a simplified creature object with only the data we need
-        const creature = {
-            name: monster.name,
-            source: monster.source || 'Unknown',
-            type: getCreatureType(monster),
-            size: monster.size || 'M',
-            cr: getChallengeRating(monster),
-            hp: getHitPoints(monster),
-            ac: getArmorClass(monster),
-            speed: getSpeed(monster),
-            abilities: getAbilityScores(monster),
-            attacks: getAttacks(monster),
-            specialAbilities: getSpecialAbilities(monster),
-            // Add a unique ID
-            id: `${monster.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${monster.source || 'unk'}`
-        };
-        
-        // Add to our creatures array in memory
-        dataCache.creatures.push(creature);
-        
-        // Also update the lookup caches
-        // By type
-        if (!dataCache.creaturesByType[creature.type]) {
-            dataCache.creaturesByType[creature.type] = [];
+        try {
+            // Create a simplified creature object with only the data we need
+            const creature = {
+                name: monster.name,
+                source: monster.source || 'Unknown',
+                type: getCreatureType(monster),
+                size: monster.size || 'M',
+                cr: getChallengeRating(monster),
+                hp: getHitPoints(monster),
+                ac: getArmorClass(monster),
+                speed: getSpeed(monster),
+                abilities: getAbilityScores(monster),
+                attacks: getAttacks(monster),
+                specialAbilities: getSpecialAbilities(monster),
+                // Add a unique ID
+                id: `${monster.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${monster.source || 'unk'}`
+            };
+            
+            // Add to our creatures array in memory
+            dataCache.creatures.push(creature);
+            
+            // Also update the lookup caches
+            // By type
+            if (!dataCache.creaturesByType[creature.type]) {
+                dataCache.creaturesByType[creature.type] = [];
+            }
+            dataCache.creaturesByType[creature.type].push(creature);
+            
+            // By CR
+            const crKey = creature.cr.toString();
+            if (!dataCache.creaturesByCR[crKey]) {
+                dataCache.creaturesByCR[crKey] = [];
+            }
+            dataCache.creaturesByCR[crKey].push(creature);
+            
+            stats.validMonsters++;
+        } catch (error) {
+            console.error(`Error processing monster ${monster.name}:`, error);
+            stats.invalidMonsters++;
         }
-        dataCache.creaturesByType[creature.type].push(creature);
-        
-        // By CR
-        const crKey = creature.cr.toString();
-        if (!dataCache.creaturesByCR[crKey]) {
-            dataCache.creaturesByCR[crKey] = [];
-        }
-        dataCache.creaturesByCR[crKey].push(creature);
     });
+    
+    return stats;
+}
+
+/**
+ * Validate monster data for required fields and data types
+ * @param {Object} monster - The monster data to validate
+ * @returns {boolean} True if valid, false otherwise
+ */
+function validateMonsterData(monster) {
+    // Check for required fields
+    if (!monster.name || typeof monster.name !== 'string') {
+        console.warn('Invalid monster: missing or invalid name');
+        return false;
+    }
+    
+    if (!monster.type) {
+        console.warn(`Invalid monster ${monster.name}: missing type`);
+        return false;
+    }
+    
+    // Validate size is one of the valid D&D sizes
+    const validSizes = ['T', 'S', 'M', 'L', 'H', 'G'];
+    if (monster.size && !validSizes.includes(monster.size)) {
+        console.warn(`Invalid monster ${monster.name}: invalid size ${monster.size}`);
+        return false;
+    }
+    
+    // Basic validation for CR
+    if (monster.cr !== undefined) {
+        // If CR is a string, check it's a valid fraction or number
+        if (typeof monster.cr === 'string') {
+            const validCRStrings = ['0', '1/8', '1/4', '1/2'];
+            const isValidNumberString = !isNaN(parseFloat(monster.cr));
+            
+            if (!validCRStrings.includes(monster.cr) && !isValidNumberString) {
+                console.warn(`Invalid monster ${monster.name}: invalid CR string ${monster.cr}`);
+                return false;
+            }
+        }
+        // If CR is an object, it should have a 'cr' property
+        else if (typeof monster.cr === 'object' && !monster.cr.cr) {
+            console.warn(`Invalid monster ${monster.name}: CR object missing 'cr' property`);
+            return false;
+        }
+        // If CR is neither string, number, nor object, it's invalid
+        else if (typeof monster.cr !== 'number' && typeof monster.cr !== 'object') {
+            console.warn(`Invalid monster ${monster.name}: invalid CR type ${typeof monster.cr}`);
+            return false;
+        }
+    }
+    
+    // Basic ability score validation
+    const abilities = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+    for (const ability of abilities) {
+        if (monster[ability] !== undefined) {
+            const score = parseInt(monster[ability]);
+            // D&D ability scores are typically between 1 and 30
+            if (isNaN(score) || score < 1 || score > 30) {
+                console.warn(`Invalid monster ${monster.name}: invalid ${ability} score ${monster[ability]}`);
+                // Don't reject for ability score issues, just warn
+            }
+        }
+    }
+    
+    return true;
 }
 
 /**
@@ -1119,5 +1311,179 @@ export async function clearData() {
     } catch (error) {
         console.error('Error clearing data:', error);
         return false;
+    }
+}
+
+/**
+ * Export the current data as a JSON file
+ * @returns {Promise<Object>} Resolves with a blob URL to download the data
+ */
+export async function exportData() {
+    try {
+        // Get all the creatures
+        const creatures = await getAllCreatures();
+        
+        // Get the metadata
+        const metadata = {
+            version: dataCache.metadata.version,
+            lastUpdated: dataCache.metadata.lastUpdated,
+            creatureCount: creatures.length,
+            exportDate: new Date().toISOString()
+        };
+        
+        // Create the export object
+        const exportData = {
+            metadata: metadata,
+            creatures: creatures
+        };
+        
+        // Convert to JSON
+        const jsonString = JSON.stringify(exportData, null, 2);
+        
+        // Create a blob
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // Create a URL for the blob
+        const url = URL.createObjectURL(blob);
+        
+        return {
+            success: true,
+            url: url,
+            filename: `dnd5e_summons_data_${new Date().toISOString().slice(0, 10)}.json`
+        };
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Import data from a JSON file
+ * @param {File} file - The JSON file to import
+ * @returns {Promise<Object>} Resolves with results about the imported data
+ */
+export async function importData(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = async function(event) {
+            try {
+                const jsonData = JSON.parse(event.target.result);
+                
+                // Validate the import data
+                if (!jsonData.metadata || !jsonData.creatures || !Array.isArray(jsonData.creatures)) {
+                    throw new Error('Invalid import file format');
+                }
+                
+                // Reset the data cache
+                resetDataCache();
+                
+                // Clear the database
+                await clearDatabase();
+                
+                // Update the cache with the imported data
+                dataCache.metadata.version = jsonData.metadata.version || '0.1.0';
+                dataCache.metadata.lastUpdated = jsonData.metadata.lastUpdated || new Date().toISOString();
+                dataCache.metadata.creatureCount = jsonData.creatures.length;
+                
+                // Process creatures
+                let validCreatures = 0;
+                let invalidCreatures = 0;
+                
+                jsonData.creatures.forEach(creature => {
+                    // Basic validation
+                    if (!creature.id || !creature.name || !creature.type) {
+                        invalidCreatures++;
+                        return;
+                    }
+                    
+                    // Add to our creatures array
+                    dataCache.creatures.push(creature);
+                    
+                    // Update the lookup caches
+                    if (!dataCache.creaturesByType[creature.type]) {
+                        dataCache.creaturesByType[creature.type] = [];
+                    }
+                    dataCache.creaturesByType[creature.type].push(creature);
+                    
+                    const crKey = creature.cr.toString();
+                    if (!dataCache.creaturesByCR[crKey]) {
+                        dataCache.creaturesByCR[crKey] = [];
+                    }
+                    dataCache.creaturesByCR[crKey].push(creature);
+                    
+                    validCreatures++;
+                });
+                
+                // Save to IndexedDB
+                await storeProcessedData();
+                
+                resolve({
+                    success: true,
+                    validCreatures: validCreatures,
+                    invalidCreatures: invalidCreatures,
+                    types: Object.keys(dataCache.creaturesByType).length,
+                    crs: Object.keys(dataCache.creaturesByCR).length
+                });
+            } catch (error) {
+                console.error('Error importing data:', error);
+                reject(error);
+            }
+        };
+        
+        reader.onerror = function() {
+            reject(new Error('Error reading import file'));
+        };
+        
+        reader.readAsText(file);
+    });
+}
+
+/**
+ * Get data statistics
+ * @returns {Promise<Object>} Resolves with statistics about the data
+ */
+export async function getDataStatistics() {
+    try {
+        // Get all creatures if not already in cache
+        if (dataCache.creatures.length === 0) {
+            await getAllCreatures();
+        }
+        
+        // Count creatures by type
+        const typeStats = {};
+        for (const [type, creatures] of Object.entries(dataCache.creaturesByType)) {
+            typeStats[type] = creatures.length;
+        }
+        
+        // Count creatures by CR
+        const crStats = {};
+        for (const [cr, creatures] of Object.entries(dataCache.creaturesByCR)) {
+            crStats[cr] = creatures.length;
+        }
+        
+        // Count creatures by size
+        const sizeStats = {};
+        for (const creature of dataCache.creatures) {
+            if (!sizeStats[creature.size]) {
+                sizeStats[creature.size] = 0;
+            }
+            sizeStats[creature.size]++;
+        }
+        
+        return {
+            total: dataCache.creatures.length,
+            typeStats: typeStats,
+            crStats: crStats,
+            sizeStats: sizeStats
+        };
+    } catch (error) {
+        console.error('Error getting data statistics:', error);
+        return {
+            total: 0,
+            typeStats: {},
+            crStats: {},
+            sizeStats: {}
+        };
     }
 }

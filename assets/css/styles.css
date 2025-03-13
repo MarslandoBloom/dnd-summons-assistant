@@ -93,9 +93,7 @@ main {
 }
 
 /* Button Styles */
-.primary-btn {
-    background-color: var(--secondary-color);
-    color: white;
+.primary-btn, .secondary-btn {
     border: none;
     padding: 0.5rem 1rem;
     border-radius: 4px;
@@ -104,11 +102,26 @@ main {
     transition: background-color 0.3s;
 }
 
+.primary-btn {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
 .primary-btn:hover {
     background-color: #2a0a73;
 }
 
-.primary-btn:disabled {
+.secondary-btn {
+    background-color: #e9e9e9;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.secondary-btn:hover {
+    background-color: #ddd;
+}
+
+.primary-btn:disabled, .secondary-btn:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
 }
@@ -173,11 +186,30 @@ footer a {
     margin-right: auto;
 }
 
+.action-buttons {
+    margin: 2rem auto;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.or-divider {
+    margin: 1rem 0;
+    font-weight: bold;
+    color: #666;
+}
+
+.upload-your-files {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
 .file-upload-area {
     border: 2px dashed var(--border-color);
     border-radius: 5px;
     padding: 2rem;
-    margin: 2rem auto;
+    margin: 1rem auto;
     max-width: 500px;
     transition: all 0.3s;
     cursor: pointer;
@@ -229,8 +261,15 @@ footer a {
     color: var(--secondary-color);
 }
 
-.upload-help ol {
+.upload-help h4 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--secondary-color);
+}
+
+.upload-help ol, .upload-help ul {
     margin-left: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .upload-help li {
@@ -245,6 +284,7 @@ footer a {
 /* App Interface Styles */
 .app-interface {
     padding: 1rem;
+    position: relative;
 }
 
 .app-interface h2 {
@@ -252,24 +292,114 @@ footer a {
     margin-bottom: 1rem;
 }
 
+.app-interface h3 {
+    color: var(--secondary-color);
+    margin: 1.5rem 0 1rem;
+}
+
+.success-banner {
+    background-color: var(--success-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 2rem;
+    animation: fadeIn 0.5s ease-out;
+    transition: opacity 1s ease-out;
+}
+
+.success-banner.fade-out {
+    opacity: 0;
+}
+
+.success-icon {
+    font-size: 1.5rem;
+    margin-right: 0.5rem;
+    font-weight: bold;
+}
+
+.success-message {
+    font-weight: bold;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .data-summary {
     background-color: #f8f9fa;
     border-radius: 5px;
     padding: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .data-summary p {
     margin-bottom: 0.5rem;
 }
 
-.data-sample {
+.data-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.data-actions-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid var(--warning-color);
+    padding: 0.75rem;
+    margin: 0.5rem 0 1.5rem;
+    font-size: 0.9em;
+    line-height: 1.4;
+    border-radius: 4px;
+}
+
+.data-actions-info p {
+    margin: 0;
+}
+
+.data-actions-info strong {
+    color: var(--warning-color);
+}
+
+.data-stats {
     margin-bottom: 2rem;
 }
 
-.data-sample h3 {
-    margin-bottom: 1rem;
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stats-card {
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    padding: 1rem;
+    border-top: 3px solid var(--primary-color);
+}
+
+.stats-card h4 {
+    margin-bottom: 0.5rem;
     color: var(--secondary-color);
+}
+
+.stats-card ul {
+    list-style: none;
+}
+
+.stats-card li {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.3rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.3rem;
+}
+
+.data-sample {
+    margin-bottom: 2rem;
 }
 
 .search-container {
@@ -337,4 +467,54 @@ footer a {
     background-color: #f8f9fa;
     border-radius: 5px;
     color: #666;
+}
+
+/* Notification System */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    max-width: 350px;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+
+.notification-success {
+    border-left: 4px solid var(--success-color);
+}
+
+.notification-error {
+    border-left: 4px solid var(--error-color);
+}
+
+.notification-info {
+    border-left: 4px solid var(--secondary-color);
+}
+
+.notification-show {
+    transform: translateX(0);
+}
+
+.notification-message {
+    flex: 1;
+    padding-right: 0.5rem;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+}
+
+.notification-close:hover {
+    color: var(--text-color);
 }
